@@ -46,9 +46,8 @@ def create_ipic3d_programming_environment():
     env = ProgrammingEnvironment(
         name="ipic3d_intel_mpi",
         modules=[
-            "intel-oneapi-compilers/2023.2.1",
-            "intel-oneapi-mpi/2021.10.0", 
-            "hdf5/1.14.3--intel-oneapi-mpi--2021.10.0--oneapi--2023.2.0"
+            "intel-oneapi-mpi/2021.12.1", 
+            "hdf5/1.14.3--intel-oneapi-mpi--2021.12.1--oneapi--2024.1.0"
         ],
         env_vars={
             "OMP_NUM_THREADS": "1",
@@ -131,12 +130,12 @@ def create_ipic3d_weak_scaling_test():
     
     # Base paths
     base_input = Path("/leonardo_scratch/large/userinternal/nshukla1/SpaceBenchmark/weak_scaling/test2/base/scaling")
-    source_dir = Path("/leonardo_scratch/large/userinternal/nshukla1/PICKTH/iPIC3D-CPU-SPACE-CoE")
+    source_dir = Path(__file__).parent.parent / "iPIC3D-CPU-SPACE-CoE"
     
     # Create test instance
     test = Test(
         name="ipic3d_weak_scaling_robust",
-        command=["iPIC3D", "Maxwell2D.inp"],
+        command=[str(source_dir / "build" / "iPIC3D"), "Maxwell2D.inp"],
         input_file=base_input,
         source_dir=source_dir,
         output_dir=Path("./results")
@@ -228,12 +227,12 @@ def create_ipic3d_strong_scaling_test():
     
     # Base paths
     base_input = Path("/leonardo_scratch/large/userinternal/nshukla1/SpaceBenchmark/weak_scaling/test2/base/scaling")
-    source_dir = Path("/leonardo_scratch/large/userinternal/nshukla1/PICKTH/iPIC3D-CPU-SPACE-CoE")
+    source_dir = Path(__file__).parent.parent / "iPIC3D-CPU-SPACE-CoE"
     
     # Create test instance
     test = Test(
         name="ipic3d_strong_scaling_robust",
-        command=["iPIC3D", "Maxwell2D.inp"],
+        command=[str(source_dir / "build" / "iPIC3D"), "Maxwell2D.inp"],
         input_file=base_input,
         source_dir=source_dir,
         output_dir=Path("./results")

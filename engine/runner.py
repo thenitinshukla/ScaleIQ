@@ -170,20 +170,50 @@ class TestRunner:
         # Get the executable path from the command
         exe_path = Path(self.test.command[0])
         
-        # If it's a relative path, check if it exists in the current directory
-        if not exe_path.is_absolute():
-            exe_path = Path.cwd() / exe_path
-        
-        # Check if the binary exists
+        # Check if the binary exists at the specified path
         if exe_path.exists():
-            logger.info(f"Binary found: {exe_path}")
+            logger.info(f"Binary found at specified path: {exe_path}")
             return True
+        
+        # If it's a relative path, check common locations
+        if not exe_path.is_absolute():
+            # Check in current directory
+            if (Path.cwd() / exe_path).exists():
+                self.test.command[0] = str(Path.cwd() / exe_path)
+                logger.info(f"Binary found in current directory: {self.test.command[0]}")
+                return True
+            
+            # Check in source build directory
+            source_dir = self.test.build_config.source_dir
+            if source_dir and source_dir.exists():
+                # Check in source_dir/build/
+                build_exe_path = source_dir / "build" / exe_path
+                if build_exe_path.exists():
+                    self.test.command[0] = str(build_exe_path)
+                    logger.info(f"Binary found in source build directory: {self.test.command[0]}")
+                    return True
+                
+                # Check in source_dir directly
+                source_exe_path = source_dir / exe_path
+                if source_exe_path.exists():
+                    self.test.command[0] = str(source_exe_path)
+                    logger.info(f"Binary found in source directory: {self.test.command[0]}")
+                    return True
         
         # If binary doesn't exist and we have source_dir, try to build it
         source_dir = self.test.build_config.source_dir
         if source_dir and source_dir.exists():
             logger.info(f"Binary not found at {exe_path}, attempting to build from {source_dir}")
             self.compile()
+            
+            # After compilation, check if the binary now exists in the install directory
+            if self.install_dir:
+                exe_name = self.test.build_config.executable_name
+                installed_exe_path = self.install_dir / exe_name
+                if installed_exe_path.exists():
+                    self.test.command[0] = str(installed_exe_path)
+                    logger.info(f"Binary found after compilation: {self.test.command[0]}")
+                    return True
         
         logger.warning(f"Binary not found and build failed or not configured: {exe_path}")
         return False
@@ -213,8 +243,14 @@ class TestRunner:
         script_path.write_text(script_content)
         script_path.chmod(0o755)
         
+        logger.info(f"Created job script: {script_path}")
+        logger.debug(f"Job script content:\n{script_content}")
+        
         try:
+            logger.info(f"Submitting job script: {script_path}")
             job_id = self.scheduler.submit_job(script_path)
+            logger.info(f"Successfully submitted job with ID: {job_id}")
+            
             metadata = {
                 'job_id': job_id,
                 'num_nodes': job_config.num_nodes,
