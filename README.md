@@ -1,4 +1,4 @@
-# HPC-ScaleTest
+# ScaleIQ 
 
 A modular Python framework for running benchmark scaling tests on heterogeneous HPC systems with support for CPU and GPU resources.
 
