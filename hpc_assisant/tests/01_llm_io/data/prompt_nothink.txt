@@ -1,1 +1,0 @@
-Plan the next steps to configure and build the sample CMake project and prepare a CPU sbatch preview.
