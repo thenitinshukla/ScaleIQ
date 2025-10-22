@@ -1,0 +1,10 @@
+name: hpc-agent
+channels:
+  - conda-forge
+dependencies:
+  - python=3.10
+  - cmake
+  - mpi4py
+  - pip:
+      - numpy
+      - cupy-cuda12x

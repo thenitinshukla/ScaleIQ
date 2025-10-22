@@ -1,0 +1,5 @@
+<think>
+Checking available moves...
+Planning best approach for git clone.
+</think>
+{"tool_call": {"name": "git_clone", "arguments": {"repo": "https://example.com/repo.git", "ref": "main"}}}

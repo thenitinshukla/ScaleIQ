@@ -1,0 +1,11 @@
+{
+  "test_id": "T-0602-invalid-flag",
+  "category": "compile",
+  "rule_id": "compile.invalid_flag",
+  "confidence": 0.88,
+  "evidence": "unknown argument: '-march=nativee'",
+  "advice": [
+    "Remove or correct the flag (-march=native)",
+    "Confirm compiler supports the desired architecture flag"
+  ]
+}

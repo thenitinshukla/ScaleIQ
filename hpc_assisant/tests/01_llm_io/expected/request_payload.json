@@ -1,0 +1,15 @@
+{
+  "model": "$VLLM_MODEL_NAME",
+  "input": [
+    {
+      "role": "system",
+      "content": "/nothink"
+    },
+    {
+      "role": "user",
+      "content": "You are the orchestrator agent. Available moves: `git_clone`, `detect_buildsystem`.\nTask: clone the repository https://example.com/repo.git at ref main and report the detected build system."
+    }
+  ],
+  "stream": false,
+  "temperature": 0.0
+}

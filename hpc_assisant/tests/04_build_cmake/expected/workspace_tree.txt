@@ -1,0 +1,12 @@
+workspace/
+├── CMakeLists.txt
+├── build/
+│   ├── CMakeCache.txt
+│   ├── CMakeFiles/
+│   └── compile_commands.json
+├── runs/
+│   └── cmake_config/
+│       └── configure.log
+└── src/
+    ├── main.cpp
+    └── solver.cpp

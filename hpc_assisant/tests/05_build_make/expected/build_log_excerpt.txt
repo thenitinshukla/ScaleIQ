@@ -1,0 +1,4 @@
+cc -O3 -c src/main.cpp -o src/main.o
+cc -O3 -c src/solver.cpp -o src/solver.o
+ar rcs libsolver.a src/solver.o
+cc src/main.o libsolver.a -o solver

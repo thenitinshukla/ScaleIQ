@@ -1,0 +1,7 @@
+{
+  "make": {
+    "duration_sec": 1.408,
+    "jobs": 4,
+    "commands": ["make -j4 all"]
+  }
+}

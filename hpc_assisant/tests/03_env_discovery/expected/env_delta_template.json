@@ -1,0 +1,20 @@
+{
+  "added": {
+    "LOADEDMODULES": "gcc/12.1.0:openmpi/4.1.5:cmake/3.26.4"
+  },
+  "modified": {
+    "PATH": {
+      "before": "/usr/bin:/bin",
+      "after": "/opt/cmake/3.26.4/bin:/opt/openmpi/4.1.5/bin:/opt/gcc/12.1.0/bin:/usr/bin:/bin"
+    },
+    "LD_LIBRARY_PATH": {
+      "before": "/usr/lib",
+      "after": "/opt/openmpi/4.1.5/lib:/opt/gcc/12.1.0/lib64:/usr/lib"
+    }
+  },
+  "removed": {},
+  "child_check": {
+    "gcc": "/opt/gcc/12.1.0/bin/gcc",
+    "mpicc": "/opt/openmpi/4.1.5/bin/mpicc"
+  }
+}

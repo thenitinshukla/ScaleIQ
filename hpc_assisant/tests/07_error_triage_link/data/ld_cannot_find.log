@@ -1,0 +1,5 @@
+/usr/bin/ld: cannot find -lfftw3
+collect2: error: ld returned 1 exit status
+make[2]: *** [solver] Error 1
+make[1]: *** [all] Error 2
+make: *** [all] Error 2

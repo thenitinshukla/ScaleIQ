@@ -1,0 +1,12 @@
+{
+  "artifacts": [
+    {
+      "path": "solver",
+      "type": "executable"
+    },
+    {
+      "path": "libsolver.a",
+      "type": "static_library"
+    }
+  ]
+}

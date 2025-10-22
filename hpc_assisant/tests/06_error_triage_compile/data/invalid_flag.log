@@ -1,0 +1,4 @@
+clang: error: unknown argument: '-march=nativee'
+make[2]: *** [src/main.o] Error 1
+make[1]: *** [all] Error 2
+make: *** [all] Error 2

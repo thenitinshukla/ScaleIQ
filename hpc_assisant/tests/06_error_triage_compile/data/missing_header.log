@@ -1,0 +1,7 @@
+/tmp/work/src/solver.cpp:12:10: fatal error: mpi.h: No such file or directory
+   12 | #include <mpi.h>
+      |          ^~~~~~~
+compilation terminated.
+make[2]: *** [src/CMakeFiles/solver.dir/solver.cpp.o] Error 1
+make[1]: *** [src/CMakeFiles/solver.dir/all] Error 2
+make: *** [all] Error 2

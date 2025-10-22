@@ -6,4 +6,8 @@ __pycache__/
 *.log
 .cache/
 runs/
+hpc_assisant/runs/
+hpc_assisant/__pycache__/
 .DS_Store
+**/runs/
+**/tests

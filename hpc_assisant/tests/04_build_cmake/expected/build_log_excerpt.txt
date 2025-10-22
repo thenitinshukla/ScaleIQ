@@ -1,0 +1,4 @@
+[ 10%] Building CXX object src/CMakeFiles/solver.dir/main.cpp.o
+[ 50%] Building CXX object src/CMakeFiles/solver.dir/solver.cpp.o
+[ 90%] Linking CXX executable solver
+[100%] Built target solver

@@ -1,0 +1,22 @@
+spack:
+  specs:
+    - openmpi@4.1.5 %gcc@12.2.0 +cuda cuda_arch=80
+    - fftw@3.3.10 precision=float,double
+  view: false
+  concretizer:
+    unify: true
+  packages:
+    all:
+      target: [x86_64]
+      compiler: [gcc@12.2.0]
+  compilers:
+    - compiler:
+        spec: gcc@12.2.0
+        paths:
+          cc: /opt/gcc/12.2/bin/gcc
+          cxx: /opt/gcc/12.2/bin/g++
+          f77: /opt/gcc/12.2/bin/gfortran
+          fc: /opt/gcc/12.2/bin/gfortran
+        flags: {}
+        operating_system: rocky8
+        target: x86_64

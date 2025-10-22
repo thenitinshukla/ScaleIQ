@@ -1,0 +1,11 @@
+{
+  "test_id": "T-0601-missing-header",
+  "category": "compile",
+  "rule_id": "compile.missing_header",
+  "confidence": 0.92,
+  "evidence": "fatal error: mpi.h: No such file or directory",
+  "advice": [
+    "Load the cluster-provided MPI module (e.g., module load openmpi)",
+    "Verify include paths contain <mpi.h> (e.g., add -I$MPI_HOME/include)"
+  ]
+}

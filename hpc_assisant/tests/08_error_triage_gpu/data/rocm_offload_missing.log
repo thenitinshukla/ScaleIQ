@@ -1,0 +1,5 @@
+clang-15: error: cannot determine which GPU to compile for; provide --offload-arch= target
+hipcc: error: clang frontend command failed with exit code 1
+make[2]: *** [solver_hip] Error 1
+make[1]: *** [all] Error 2
+make: *** [all] Error 2

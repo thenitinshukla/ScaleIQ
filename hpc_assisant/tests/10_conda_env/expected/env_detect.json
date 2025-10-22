@@ -1,0 +1,13 @@
+{
+  "manifest_path": "environment.yml",
+  "hash": "sha256:dummypipenvhash",
+  "name": "hpc-agent",
+  "channels": ["conda-forge"],
+  "dependencies": [
+    "python=3.10",
+    "cmake",
+    "mpi4py",
+    "pip:numpy",
+    "pip:cupy-cuda12x"
+  ]
+}

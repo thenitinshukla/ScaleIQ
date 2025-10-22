@@ -1,0 +1,14 @@
+{
+  "PATH": {
+    "added": ["/opt/miniconda/envs/hpc-agent/bin"],
+    "removed": []
+  },
+  "PYTHONPATH": {
+    "added": [],
+    "removed": []
+  },
+  "CONDA_PREFIX": {
+    "added": ["/opt/miniconda/envs/hpc-agent"],
+    "removed": []
+  }
+}

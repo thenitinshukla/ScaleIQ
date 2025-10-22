@@ -1,0 +1,10 @@
+{
+  "VLLM_API_BASE": "https://local-vllm.service",
+  "VLLM_API_KEY": "***MASKED***",
+  "VLLM_MODEL_NAME": "deepseek-coder",
+  "VLLM_EMBEDDING_MODEL": "BAAI/bge-m3",
+  "_metadata": {
+    "generated_at": "YYYY-MM-DDTHH:MM:SSZ",
+    "masking_strategy": "pattern_based"
+  }
+}
