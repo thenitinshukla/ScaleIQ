@@ -20,5 +20,5 @@ This suite confirms the agent can detect Conda environment manifests and execute
 ## Supporting documentation
 - `plan.md` details the detection/run steps and promotion criteria for `utils/conda`.
 - `data/` houses the manifest and command templates.
-- `expected/` includes metadata templates, run logs, and environment diffs.
+- `expected/` includes metadata templates, run logs, environment diffs, and logging requirements.
 - `risks.md` highlights common issues such as env name collisions or shell contamination.

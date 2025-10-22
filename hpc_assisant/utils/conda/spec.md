@@ -26,6 +26,7 @@ class CondaEnv:
 - Captures stdout/stderr, exit code, and environment diff relative to the parent shell.
 
 ## Logging
+- Follow the structure documented in `tests/10_conda_env/expected/logging_requirements.md`.
 - Detection metadata written to `runs/<timestamp>/conda/env_detect.json`.
 - Command outputs stored under `runs/<timestamp>/conda/run_output.txt` with corresponding `env_delta.json`.
 - All operations logged in `events.jsonl` including hashes of manifests and command transcripts.
