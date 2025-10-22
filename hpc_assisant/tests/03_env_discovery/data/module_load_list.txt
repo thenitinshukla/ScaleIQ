@@ -1,3 +1,0 @@
-gcc/12.2
-openmpi/4.1
-cmake/3.24

@@ -1,2 +1,1 @@
-You are the orchestrator agent. Available moves: `git_clone`, `detect_buildsystem`.
-Task: clone the repository https://example.com/repo.git at ref main and report the detected build system.
+Plan the next steps to configure and build the sample CMake project and prepare a CPU sbatch preview.

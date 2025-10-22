@@ -1,4 +1,4 @@
-"""Harness for suite 01 (LLM I/O) covering T-0101..T-0103."""
+"""Harness for suite 01 (LLM I/O) covering context + sanitisation checks."""
 
 from __future__ import annotations
 
@@ -16,6 +16,8 @@ from utils.paths import RunPaths
 
 DATA_DIR = Path(__file__).resolve().parent / "data"
 EXPECTED_DIR = Path(__file__).resolve().parent / "expected"
+SYSTEM_PROMPT_PATH = PROJECT_ROOT / "llm/system_prompt.md"
+CONTEXT_PATH = PROJECT_ROOT / "llm/context_example.json"
 SANITIZE_PATTERN = re.compile(r"<think>.*?</think>", re.DOTALL)
 
 
@@ -38,83 +40,78 @@ def validate_tool_call(payload: dict) -> dict:
     arguments = tool_call.get("arguments")
     if not isinstance(arguments, dict):
         raise ValueError("tool_call.arguments must be an object")
-    return {
-        "name": name,
-        "argument_keys": sorted(arguments.keys()),
-    }
+    return {"name": name, "argument_keys": sorted(arguments.keys())}
 
 
 def main() -> int:
     config = ConfigProvider()
     run_paths = RunPaths.create()
 
-    # T-0101 – Build request with /nothink directive
-    prompt_path = DATA_DIR / "prompt_nothink.txt"
-    prompt = load_text(prompt_path)
+    system_prompt = load_text(SYSTEM_PROMPT_PATH)
+    context_pack = json.loads(CONTEXT_PATH.read_text(encoding="utf-8"))
+    task_instruction = load_text(DATA_DIR / "prompt_nothink.txt")
     request = {
         "model": config.get("VLLM_MODEL_NAME"),
-        "input": [
-            {"role": "system", "content": "/nothink"},
-            {"role": "user", "content": prompt},
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": "/nothink
+
+CONTEXT:
+" + json.dumps(context_pack) + "
+
+TASK:
+" + task_instruction},
         ],
+        "temperature": 0.2,
+        "max_tokens": 1200,
         "stream": False,
-        "temperature": 0.0,
     }
     request_path = run_paths.run_dir / "llm_request.json"
     run_paths.write_json(request_path, request)
-    run_paths.append_event(
-        {
-            "step": "T-0101-nothink-param",
-            "action": "build_request",
-            "request_path": str(request_path.relative_to(PROJECT_ROOT)),
-            "model": request["model"],
-            "has_nothink": any(msg.get("content") == "/nothink" for msg in request["input"]),
-        }
-    )
+    run_paths.append_event({
+        "step": "T-0101-context-request",
+        "action": "build_request",
+        "request_path": str(request_path.relative_to(PROJECT_ROOT)),
+        "model": request["model"],
+        "has_nothink": "/nothink" in request["messages"][1]["content"].lower(),
+    })
 
-    # T-0102 – Sanitize <think> blocks
     raw_text = load_text(DATA_DIR / "llm_raw_with_think.txt")
     sanitized, removed = sanitize_think_blocks(raw_text)
     sanitized_path = run_paths.run_dir / "llm_sanitized.txt"
-    sanitized_path.write_text(sanitized + "\n", encoding="utf-8")
+    sanitized_path.write_text(sanitized + "
+", encoding="utf-8")
     expected_sanitized = load_text(EXPECTED_DIR / "sanitized_output.txt")
-    run_paths.append_event(
-        {
-            "step": "T-0102-strip-think",
-            "action": "sanitize_response",
-            "sanitized_path": str(sanitized_path.relative_to(PROJECT_ROOT)),
-            "blocks_removed": removed,
-            "matches_expected": sanitized == expected_sanitized,
-        }
-    )
+    run_paths.append_event({
+        "step": "T-0102-strip-think",
+        "action": "sanitize_response",
+        "sanitized_path": str(sanitized_path.relative_to(PROJECT_ROOT)),
+        "blocks_removed": removed,
+        "matches_expected": sanitized == expected_sanitized,
+    })
 
-    # T-0103 – Validate tool call JSON
     try:
         payload = json.loads(sanitized)
     except json.JSONDecodeError as exc:
-        run_paths.append_event(
-            {
-                "step": "T-0103-toolcall-schema",
-                "action": "parse_tool_call",
-                "status": "error",
-                "error": str(exc),
-            }
-        )
+        run_paths.append_event({
+            "step": "T-0103-toolcall-schema",
+            "action": "parse_tool_call",
+            "status": "error",
+            "error": str(exc),
+        })
         print(f"[llm_io] ERROR parsing tool call: {exc}", file=sys.stderr)
         return 1
 
     validation = validate_tool_call(payload)
     tool_call_path = run_paths.run_dir / "tool_call.json"
     run_paths.write_json(tool_call_path, payload)
-    run_paths.append_event(
-        {
-            "step": "T-0103-toolcall-schema",
-            "action": "validate_tool_call",
-            "tool_call_path": str(tool_call_path.relative_to(PROJECT_ROOT)),
-            "name": validation["name"],
-            "argument_keys": validation["argument_keys"],
-        }
-    )
+    run_paths.append_event({
+        "step": "T-0103-toolcall-schema",
+        "action": "validate_tool_call",
+        "tool_call_path": str(tool_call_path.relative_to(PROJECT_ROOT)),
+        "name": validation["name"],
+        "argument_keys": validation["argument_keys"],
+    })
 
     print(f"[llm_io] Run artifacts stored in {run_paths.run_dir.relative_to(PROJECT_ROOT)}")
     return 0

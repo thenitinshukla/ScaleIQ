@@ -1,5 +1,3 @@
-<think>
-Checking available moves...
-Planning best approach for git clone.
-</think>
-{"tool_call": {"name": "git_clone", "arguments": {"repo": "https://example.com/repo.git", "ref": "main"}}}
+<think>Evaluating context...
+Plan: load modules, configure build.</think>
+{"tool_call": {"name": "plan_build", "arguments": {"steps": ["module load gcc/12.2", "cmake -S . -B build"], "target": "cpu"}}}

@@ -1,15 +1,16 @@
 {
   "model": "$VLLM_MODEL_NAME",
-  "input": [
+  "messages": [
     {
       "role": "system",
-      "content": "/nothink"
+      "content": "...system prompt..."
     },
     {
       "role": "user",
-      "content": "You are the orchestrator agent. Available moves: `git_clone`, `detect_buildsystem`.\nTask: clone the repository https://example.com/repo.git at ref main and report the detected build system."
+      "content": "/nothink\n\nCONTEXT:\n{...}\n\nTASK:\n..."
     }
   ],
-  "stream": false,
-  "temperature": 0.0
+  "temperature": 0.2,
+  "max_tokens": 1200,
+  "stream": false
 }

@@ -1,9 +1,0 @@
-=== CMake Configure Log ===
-Timestamp: YYYY-MM-DDTHH:MM:SSZ
-Source dir: /runs/<timestamp>/workspace/hpc-toy
-Build dir: /runs/<timestamp>/workspace/hpc-toy/build
-Command: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release ...
-Status: success
-Notes:
-- Generator: Unix Makefiles
-- Compiler: GCC 12.2.0

@@ -1,3 +1,0 @@
-gcc/12.2
-cmake/3.24
-ninja/1.11 # optional if using Ninja generator
