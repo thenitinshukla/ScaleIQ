@@ -1,0 +1,14 @@
+[
+  {
+    "id": "repo-inspection",
+    "query": "List the initial shell commands you would run to inspect the repository structure on Leonardo before building."
+  },
+  {
+    "id": "module-selection",
+    "query": "Explain which Leonardo modules to load for building a CUDA application and emit the exact module load commands."
+  },
+  {
+    "id": "sbatch-preview",
+    "query": "Plan a debug sbatch submission on Leonardo's booster partition for a short GPU test and output the commands required, including a dry-run."
+  }
+]

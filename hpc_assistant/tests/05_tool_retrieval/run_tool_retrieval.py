@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the documentation vector store and exercise retrieval-augmented prompting."""
+"""Exercise retrieval-augmented prompting with command tool logging."""
 
 from __future__ import annotations
 
@@ -22,11 +22,12 @@ try:
     from hpc_assistant.utils import env as env_utils
     from hpc_assistant.utils import llm as llm_utils
     from hpc_assistant.utils import retrieval as retrieval_utils
+    from hpc_assistant.utils import tools as tool_utils
 except ModuleNotFoundError:
-    # Fallback for running the script directly without installing the package.
     from utils import env as env_utils
     from utils import llm as llm_utils
     from utils import retrieval as retrieval_utils
+    from utils import tools as tool_utils
 
 PROJECT_ROOT = env_utils.get_project_root()
 DOCS_PATH = PROJECT_ROOT / "hpc_documentation"
@@ -37,7 +38,9 @@ THINK_DIRECTIVE = "/nothink"
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Run retrieval-augmented prompts against the HPC docs.")
+    parser = argparse.ArgumentParser(
+        description="Run retrieval-augmented prompts and capture tool calls.",
+    )
     parser.add_argument(
         "--rebuild",
         action="store_true",
@@ -75,6 +78,7 @@ def run_queries(
     llm_client,
     system_prompt: str,
     output_dir: Path,
+    command_logger: tool_utils.CommandLogger,
 ) -> List[Dict[str, Any]]:
     output_dir.mkdir(parents=True, exist_ok=True)
     run_records: List[Dict[str, Any]] = []
@@ -108,7 +112,10 @@ def run_queries(
         context_payload = {
             "query": query_text,
             "retrieved": retrieval_payload,
-            "instructions": "Use the retrieved context. Cite sources as [source:line] for factual claims.",
+            "instructions": (
+                "Use the retrieved context. Cite sources as [source:line] for factual claims. "
+                "Propose shell commands via the emit_command tool."
+            ),
         }
 
         messages = llm_utils.build_messages(
@@ -118,6 +125,7 @@ def run_queries(
             think_directive=THINK_DIRECTIVE,
         )
 
+        command_logger.clear()
         print("  -> Sending prompt to LLM...", flush=True)
         response = llm_client.invoke(messages)
         print("  -> LLM response received.", flush=True)
@@ -137,11 +145,12 @@ def run_queries(
                 "content": sanitized_content,
                 "citation_present": citation_present,
             },
+            "commands": command_logger.entries,
         }
 
         output_path = output_dir / f"{task_id}.json"
         output_path.write_text(json.dumps(output_payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-        print(f"[INFO] Stored retrieval response for '{task_id}' at {output_path.relative_to(PROJECT_ROOT)}")
+        print(f"[INFO] Stored tool-retrieval response for '{task_id}' at {output_path.relative_to(PROJECT_ROOT)}")
 
         run_records.append(
             {
@@ -150,6 +159,7 @@ def run_queries(
                 "output_file": str(output_path.relative_to(PROJECT_ROOT)),
                 "citation_present": citation_present,
                 "retrieved_count": len(retrieval_payload),
+                "commands_logged": len(command_logger.entries),
             }
         )
 
@@ -184,12 +194,15 @@ def main() -> int:
         progress_callback=progress_callback,
     )
 
-    llm_client = llm_utils.build_chat_llm(llm_settings)
-    queries = load_queries(args.queries_path)
-
-    timestamp = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
-    output_root = OUTPUT_ROOT / timestamp
+    output_timestamp = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+    output_dir = OUTPUT_ROOT / output_timestamp
     OUTPUT_ROOT.mkdir(parents=True, exist_ok=True)
+    command_log_path = output_dir / "commands.jsonl"
+    command_logger = tool_utils.CommandLogger(command_log_path)
+    emit_command_tool = tool_utils.build_emit_command_tool(command_logger)
+
+    llm_client = llm_utils.build_chat_llm(llm_settings, tools=[emit_command_tool])
+    queries = load_queries(args.queries_path)
 
     run_records = run_queries(
         queries=queries,
@@ -197,19 +210,21 @@ def main() -> int:
         embeddings_client=embeddings_client,
         llm_client=llm_client,
         system_prompt=system_prompt,
-        output_dir=output_root,
+        output_dir=output_dir,
+        command_logger=command_logger,
     )
 
     summary = {
-        "generated_at": timestamp,
+        "generated_at": output_timestamp,
         "model": llm_settings.model,
         "embedding_model": embedding_settings.model,
         "queries_file": str(args.queries_path.relative_to(PROJECT_ROOT)),
         "runs": run_records,
+        "commands_log": str(command_log_path.relative_to(PROJECT_ROOT)),
     }
-    summary_path = output_root / "summary.json"
+    summary_path = output_dir / "summary.json"
     summary_path.write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
-    print(f"[DONE] Retrieval test outputs stored under {output_root.relative_to(PROJECT_ROOT)}")
+    print(f"[DONE] Tool-retrieval outputs stored under {output_dir.relative_to(PROJECT_ROOT)}")
     return 0
 
 
