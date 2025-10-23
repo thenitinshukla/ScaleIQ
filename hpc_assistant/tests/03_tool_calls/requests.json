@@ -1,0 +1,14 @@
+[
+  {
+    "id": "command-sequence",
+    "task": "List the exact shell commands you would run to inspect the project repository (without executing them). Return a single command at a time via the tool."
+  },
+  {
+    "id": "module-planning",
+    "task": "Before configuring the build, suggest the first command you would execute to check available compiler modules."
+  },
+  {
+    "id": "sbatch-template",
+    "task": "Provide the command you would issue to preview an sbatch submission script for a CPU test job."
+  }
+]

@@ -10,4 +10,5 @@ hpc_assisant/runs/
 hpc_assisant/__pycache__/
 .DS_Store
 **/runs/
-**/tests/
+**/outputs
+**/vector_store

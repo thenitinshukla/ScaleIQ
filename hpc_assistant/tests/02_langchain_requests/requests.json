@@ -1,0 +1,14 @@
+[
+  {
+    "id": "repo-intake",
+    "task": "Review the provided context and outline the exact steps you would take to clone the repository at https://github.com/leonardo-example/hpc-sample.git and inspect its build system. Include any safety checks before running git commands."
+  },
+  {
+    "id": "system-inspection",
+    "task": "Given the cluster context, describe how you would verify the available compiler and GPU modules on the current node before attempting a build."
+  },
+  {
+    "id": "sbatch-planning",
+    "task": "Plan an sbatch submission for a CPU-only test run of the project, specifying partitions, --ntasks, memory, and any module loads required. Provide the sbatch header you would generate."
+  }
+]

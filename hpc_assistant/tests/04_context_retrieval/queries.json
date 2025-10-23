@@ -1,0 +1,14 @@
+[
+  {
+    "id": "slurm-basics",
+    "query": "Explain how to submit a Slurm batch job on a CINECA cluster and outline the key sbatch directives you would include."
+  },
+  {
+    "id": "leonardo-partitions",
+    "query": "Summarise the Leonardo booster partitions that are best suited for quick GPU debugging and state their limits."
+  },
+  {
+    "id": "licensed-software-access",
+    "query": "What steps should a user follow to access licensed software modules such as Gaussian or MATLAB on CINECA systems?"
+  }
+]
