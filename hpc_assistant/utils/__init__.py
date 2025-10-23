@@ -25,7 +25,12 @@ from .retrieval import (
 )
 from .tools import (
     CommandLogger,
+    GuardedCommandLogger,
     build_emit_command_tool,
+)
+from .safety import (
+    ValidationResult,
+    validate_command,
 )
 
 __all__ = [
@@ -47,5 +52,8 @@ __all__ = [
     "load_markdown_chunks",
     "query_collection",
     "CommandLogger",
+    "GuardedCommandLogger",
     "build_emit_command_tool",
+    "ValidationResult",
+    "validate_command",
 ]

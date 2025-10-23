@@ -14,9 +14,11 @@ from typing import Any, Dict, List
 SCRIPT_DIR = Path(__file__).resolve().parent
 WORKSPACE_ROOT = SCRIPT_DIR.parents[1]
 PROJECT_PARENT = SCRIPT_DIR.parents[2]
-for candidate in (str(WORKSPACE_ROOT), str(PROJECT_PARENT)):
-    if candidate not in sys.path:
-        sys.path.insert(0, candidate)
+REPO_ROOT = SCRIPT_DIR.parents[3]
+for candidate in (WORKSPACE_ROOT, PROJECT_PARENT, REPO_ROOT):
+    candidate_str = str(candidate)
+    if candidate_str not in sys.path:
+        sys.path.insert(0, candidate_str)
 
 try:
     from hpc_assistant.utils import env as env_utils
@@ -70,6 +72,60 @@ def load_queries(path: Path) -> List[Dict[str, str]]:
     return data
 
 
+def _extract_command(arguments: str) -> str | None:
+    raw = arguments
+    for _ in range(4):  # unwrap nested JSON up to 4 levels
+        stripped = raw.strip()
+        if not stripped:
+            return None
+        try:
+            payload = json.loads(stripped)
+        except json.JSONDecodeError:
+            return stripped
+
+        if isinstance(payload, dict):
+            value_found = None
+            for key in ("command", "__arg1", "cmd"):
+                value = payload.get(key)
+                if isinstance(value, str):
+                    value_found = value
+                    break
+            if value_found is not None:
+                raw = value_found
+                continue
+            if len(payload) == 1:
+                sole_value = next(iter(payload.values()))
+                if isinstance(sole_value, str):
+                    raw = sole_value
+                    continue
+        elif isinstance(payload, list) and payload and isinstance(payload[0], str):
+            raw = payload[0]
+            continue
+
+        return stripped
+    return raw.strip() or None
+
+
+def _process_tool_calls(
+    tool_calls: List[Dict[str, Any]],
+    logger: tool_utils.GuardedCommandLogger,
+    task_id: str,
+) -> None:
+    for call in tool_calls or []:
+        function = call.get("function") or {}
+        arguments = function.get("arguments")
+        if not isinstance(arguments, str):
+            continue
+        command = _extract_command(arguments)
+        if not command:
+            continue
+        try:
+            logger.log(command, task_id=task_id)
+        except ValueError:
+            # Guard already recorded blocked command.
+            continue
+
+
 def run_queries(
     *,
     queries: List[Dict[str, str]],
@@ -78,7 +134,7 @@ def run_queries(
     llm_client,
     system_prompt: str,
     output_dir: Path,
-    command_logger: tool_utils.CommandLogger,
+    command_logger: tool_utils.GuardedCommandLogger,
 ) -> List[Dict[str, Any]]:
     output_dir.mkdir(parents=True, exist_ok=True)
     run_records: List[Dict[str, Any]] = []
@@ -130,6 +186,9 @@ def run_queries(
         response = llm_client.invoke(messages)
         print("  -> LLM response received.", flush=True)
 
+        tool_calls = response.additional_kwargs.get("tool_calls", []) if hasattr(response, "additional_kwargs") else []
+        _process_tool_calls(tool_calls, command_logger, task_id)
+
         raw_content = response.content or ""
         sanitized_content = llm_utils.strip_think(raw_content)
         citation_present = retrieval_utils.contains_citation(sanitized_content, retrieved_chunks)
@@ -145,7 +204,9 @@ def run_queries(
                 "content": sanitized_content,
                 "citation_present": citation_present,
             },
-            "commands": command_logger.entries,
+            "commands_accepted": command_logger.entries,
+            "commands_blocked": command_logger.blocked_entries,
+            "tool_calls": tool_calls,
         }
 
         output_path = output_dir / f"{task_id}.json"
@@ -159,7 +220,8 @@ def run_queries(
                 "output_file": str(output_path.relative_to(PROJECT_ROOT)),
                 "citation_present": citation_present,
                 "retrieved_count": len(retrieval_payload),
-                "commands_logged": len(command_logger.entries),
+                "commands_blocked": len(command_logger.blocked_entries),
+                "commands_accepted": len(command_logger.entries),
             }
         )
 
@@ -198,7 +260,7 @@ def main() -> int:
     output_dir = OUTPUT_ROOT / output_timestamp
     OUTPUT_ROOT.mkdir(parents=True, exist_ok=True)
     command_log_path = output_dir / "commands.jsonl"
-    command_logger = tool_utils.CommandLogger(command_log_path)
+    command_logger = tool_utils.GuardedCommandLogger(command_log_path)
     emit_command_tool = tool_utils.build_emit_command_tool(command_logger)
 
     llm_client = llm_utils.build_chat_llm(llm_settings, tools=[emit_command_tool])

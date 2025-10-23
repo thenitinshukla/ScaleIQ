@@ -14,9 +14,11 @@ from typing import Any, Dict, List
 SCRIPT_DIR = Path(__file__).resolve().parent
 WORKSPACE_ROOT = SCRIPT_DIR.parents[1]
 PROJECT_PARENT = SCRIPT_DIR.parents[2]
-for candidate in (str(WORKSPACE_ROOT), str(PROJECT_PARENT)):
-    if candidate not in sys.path:
-        sys.path.insert(0, candidate)
+REPO_ROOT = SCRIPT_DIR.parents[3]
+for candidate in (WORKSPACE_ROOT, PROJECT_PARENT, REPO_ROOT):
+    candidate_str = str(candidate)
+    if candidate_str not in sys.path:
+        sys.path.insert(0, candidate_str)
 
 try:
     from hpc_assistant.utils import env as env_utils
