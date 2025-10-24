@@ -1,0 +1,184 @@
+[
+  {
+    "id": "tool-sequence-basic-01",
+    "scenario": "tool_sequence",
+    "fixture": "cmake_basic",
+    "task": "Plan and virtually execute repository intake, environment inspection, configuration, compilation, and sbatch planning for this project.",
+    "context": {
+      "cluster": "Leonardo booster",
+      "modules": ["nvhpc/23.3"],
+      "notes": "Repository freshly cloned into /workspace/projects/sample"
+    },
+    "expectations": {
+      "must_include_commands": ["git status", "module list", "cmake", "sbatch"],
+      "allow_failures": false
+    }
+  },
+  {
+    "id": "tool-sequence-basic-02",
+    "scenario": "tool_sequence",
+    "fixture": "cmake_basic",
+    "task": "Repeat the full repo→env→build→sbatch workflow, citing specific module considerations for the provided environment.",
+    "context": {
+      "cluster": "Leonardo dcgp",
+      "modules": ["gcc/11.2", "openmpi/4.1"],
+      "notes": "User provided README summarises build." 
+    },
+    "expectations": {
+      "must_include_commands": ["git status", "module", "cmake -S", "cmake --build"],
+      "allow_failures": false
+    }
+  },
+  {
+    "id": "tool-sequence-basic-03",
+    "scenario": "tool_sequence",
+    "fixture": "cmake_basic",
+    "task": "Perform the standard workflow and ensure the launch plan references scripts/run_basic.sh in the REPORT.",
+    "context": {
+      "cluster": "Leonardo booster",
+      "modules": ["nvhpc/22.11"],
+      "notes": "scripts/run_basic.sh should be referenced in final plan"
+    },
+    "expectations": {
+      "must_include_commands": ["cmake -S", "cmake --build", "sbatch scripts/run_basic.sh"],
+      "allow_failures": false
+    }
+  },
+
+  {
+    "id": "partial-failure-01",
+    "scenario": "partial_failure",
+    "fixture": "cmake_failure",
+    "task": "Execute the typical workflow. If any step fails, diagnose it, propose a fix, and retry until the plan is consistent.",
+    "context": {
+      "cluster": "Leonardo booster",
+      "modules": ["nvhpc/23.3"],
+      "notes": "First cmake call should report missing CUDA toolkit"
+    },
+    "expectations": {
+      "failure_trigger": "cmake -S",
+      "recovery_keywords": ["module load", "spack install", "retry"],
+      "must_include_commands": ["cmake -S", "cmake --build"],
+      "allow_failures": true
+    }
+  },
+  {
+    "id": "partial-failure-02",
+    "scenario": "partial_failure",
+    "fixture": "cmake_failure",
+    "task": "Carry out the workflow, handling build failures by recommending module remedies before retrying.",
+    "context": {
+      "cluster": "Leonardo booster",
+      "modules": ["nvhpc/23.3"],
+      "notes": "Expect explicit mention of module nvhpc/23.3 as remedy"
+    },
+    "expectations": {
+      "failure_trigger": "cmake --build",
+      "recovery_keywords": ["module load nvhpc", "set(CMAKE_CUDA_COMPILER"],
+      "must_include_commands": ["cmake", "module load"],
+      "allow_failures": true
+    }
+  },
+  {
+    "id": "partial-failure-03",
+    "scenario": "partial_failure",
+    "fixture": "cmake_failure",
+    "task": "Perform the workflow; if GPU requirements are unmet, advise on partition/module adjustments and continue.",
+    "context": {
+      "cluster": "Leonardo dcgp",
+      "modules": ["gcc/11.2"],
+      "notes": "Expect suggestion to switch partition or load CUDA module"
+    },
+    "expectations": {
+      "failure_trigger": "cmake -S",
+      "recovery_keywords": ["module load cuda", "use booster"],
+      "must_include_commands": ["cmake", "module"],
+      "allow_failures": true
+    }
+  },
+
+  {
+    "id": "ambiguity-01",
+    "scenario": "ambiguity",
+    "fixture": "hybrid_build",
+    "task": "Choose the safest build tooling for this hybrid repository, justify the decision, and complete the sbatch planning.",
+    "context": {
+      "cluster": "Leonardo booster",
+      "modules": ["nvhpc/23.3"],
+      "notes": "CMake preferred over Make"
+    },
+    "expectations": {
+      "preferred_command": "cmake",
+      "disallowed_keywords": ["make all"],
+      "must_include_commands": ["cmake -S", "cmake --build"],
+      "allow_failures": false
+    }
+  },
+  {
+    "id": "ambiguity-02",
+    "scenario": "ambiguity",
+    "fixture": "hybrid_build",
+    "task": "Analyse both build options and recommend the most reliable one for this environment, then finish the workflow.",
+    "context": {
+      "cluster": "Leonardo dcgp",
+      "modules": ["gcc/11.2"],
+      "notes": "Make allowed only if justified but prefer cmake"
+    },
+    "expectations": {
+      "preferred_command": "cmake",
+      "disallowed_keywords": [],
+      "must_include_commands": ["cmake", "sbatch"],
+      "allow_failures": false
+    }
+  },
+  {
+    "id": "ambiguity-03",
+    "scenario": "ambiguity",
+    "fixture": "hybrid_build",
+    "task": "Discuss the merits of Make vs CMake here, pick the safest option, and produce the normal PLAN/COMMANDS/REPORT.",
+    "context": {
+      "cluster": "Leonardo booster",
+      "modules": ["nvhpc/23.3"],
+      "notes": "Expect explanation if Make is suggested"
+    },
+    "expectations": {
+      "preferred_command": "cmake",
+      "disallowed_keywords": ["make"],
+      "must_include_commands": ["cmake"],
+      "allow_failures": false
+    }
+  },
+
+  {
+    "id": "memory-load-01",
+    "scenario": "memory_load",
+    "fixture": "cmake_large_context",
+    "task": "Summarise the salient points from the supplied log, then run the full repo→env→build→sbatch reasoning sequence.",
+    "context": {
+      "cluster": "Leonardo booster",
+      "modules": ["nvhpc/23.3"],
+      "notes": "Include large log excerpt",
+      "log_file": "logs/build_output.log"
+    },
+    "expectations": {
+      "must_include_commands": ["cmake -S", "cmake --build", "sbatch"],
+      "allow_failures": false
+    }
+  },
+  {
+    "id": "memory-load-02",
+    "scenario": "memory_load",
+    "fixture": "cmake_large_context",
+    "task": "Read the large log excerpt, highlight warnings worth attention, and proceed with the standard workflow.",
+    "context": {
+      "cluster": "Leonardo dcgp",
+      "modules": ["gcc/12.1"],
+      "notes": "Log emphasises warnings; expect summarised reasoning",
+      "log_file": "logs/build_output.log"
+    },
+    "expectations": {
+      "must_include_commands": ["cmake", "cmake --build"],
+      "allow_failures": false
+    }
+  }
+]

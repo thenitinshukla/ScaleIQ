@@ -83,12 +83,17 @@ ALLOWED_COMMANDS = {
     "cp",
     "stat",
     "sbatch",
+    "srun",
     "squeue",
     "sacct",
     "sinfo",
     "env",
     "printf",
     "sleep",
+    "cmake",
+    "make",
+    "git",
+    "spack",
 }
 
 # Patterns indicating dangerous behaviour (regex applied case-insensitively).
