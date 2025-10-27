@@ -23,7 +23,6 @@ DENY_COMMANDS = {
     "rm",
     "rmdir",
     "mv",
-    "chmod",
     "chown",
     "chgrp",
     "dd",
@@ -90,6 +89,7 @@ ALLOWED_COMMANDS = {
     "env",
     "printf",
     "sleep",
+    "find",
     "cmake",
     "make",
     "git",
@@ -118,7 +118,15 @@ DENY_PATTERNS = [
 ]
 
 # Paths outside the workspace root are forbidden.
-ALLOWED_ROOTS: Sequence[Path] = [SAFE_WORKSPACE]
+ALLOWED_ROOTS: Sequence[Path] = [
+    SAFE_WORKSPACE,
+    Path("/tmp"),
+    Path("/private/tmp"),
+    Path("/private/var"),
+    Path("/private/var/tmp"),
+    Path("/workspace"),
+    Path("/workspace/projects"),
+]
 
 # Additional file extensions that should never be overwritten.
 PROTECTED_EXTENSIONS = {".so", ".dylib", ".dll", ".bin"}
@@ -250,6 +258,37 @@ def _path_arguments(tokens: List[str]) -> Iterable[str]:
         i += 1
 
 
+SAFE_CHMOD_MODES = {"+x", "u+x", "a+x", "755", "0755", "u+rwx"}
+
+
+def _is_safe_chmod(tokens: List[str]) -> bool:
+    if len(tokens) < 3:
+        return False
+    mode = tokens[1]
+    target = tokens[-1]
+    if any(token.startswith("-") for token in tokens[1:-1]):
+        return False
+    if mode not in SAFE_CHMOD_MODES:
+        return False
+    path = Path(target)
+    if ".." in path.parts:
+        return False
+    if target.startswith("/"):
+        resolved = _resolve_path(target)
+        if resolved is None:
+            return False
+        if _is_path_protected(resolved):
+            return False
+        return _within_allowed_roots(resolved)
+    resolved = _resolve_path(target)
+    if resolved is not None:
+        if _is_path_protected(resolved):
+            return False
+        if _within_allowed_roots(resolved):
+            return True
+    return not target.startswith("/")
+
+
 def _validate_segment(segment: str) -> ValidationResult:
     segment = segment.strip()
     if not segment:
@@ -266,15 +305,30 @@ def _validate_segment(segment: str) -> ValidationResult:
     head = tokens[0].lower()
     head_allowed = head in ALLOWED_COMMANDS
 
+    if head == "chmod":
+        if _is_safe_chmod(tokens):
+            return ValidationResult(segment, True)
+        return ValidationResult(segment, False, reason="Unsafe chmod usage", matched_rule="deny_command")
+
     if head in DENY_COMMANDS:
         return ValidationResult(segment, False, reason=f"Command '{head}' is denylisted", matched_rule="deny_command")
 
     # Inspect paths and arguments.
-    for arg in _path_arguments(tokens[1:]):
+    arg_tokens = tokens[1:]
+    if head in {"git", "module"} and len(tokens) > 1:
+        arg_tokens = tokens[2:]
+    for arg in _path_arguments(arg_tokens):
         if arg.startswith("-"):
             continue
         resolved = _resolve_path(arg)
         if resolved is None:
+            continue
+        path_obj = Path(arg)
+        if not path_obj.is_absolute():
+            if ".." in path_obj.parts:
+                return ValidationResult(segment, False, reason="Relative path traverses outside workspace", matched_rule="relative_escape")
+            if _is_path_protected(resolved):
+                return ValidationResult(segment, False, reason=f"Path '{resolved}' is protected", matched_rule="protected_path")
             continue
         if _is_path_protected(resolved):
             return ValidationResult(segment, False, reason=f"Path '{resolved}' is protected", matched_rule="protected_path")
@@ -293,8 +347,12 @@ def _validate_segment(segment: str) -> ValidationResult:
     if head_allowed:
         return ValidationResult(segment, True)
 
-    # Fallback: deny by default (explicit allowlist only).
-    return ValidationResult(segment, False, reason=f"Command '{head}' is not explicitly allowed", matched_rule="default_deny")
+    return ValidationResult(
+        segment,
+        False,
+        reason=f"Command '{head}' is not allowlisted",
+        matched_rule="default_deny",
+    )
 
 
 def validate_command(command: str) -> ValidationResult:

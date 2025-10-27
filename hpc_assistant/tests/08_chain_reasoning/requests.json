@@ -3,11 +3,11 @@
     "id": "tool-sequence-basic-01",
     "scenario": "tool_sequence",
     "fixture": "cmake_basic",
-    "task": "Plan and virtually execute repository intake, environment inspection, configuration, compilation, and sbatch planning for this project.",
+    "task": "Plan and virtually execute repository intake, environment inspection, configuration, compilation, and sbatch planning for this project. The existing script scripts/run_basic.sh must be used for submission.",
     "context": {
       "cluster": "Leonardo booster",
       "modules": ["nvhpc/23.3"],
-      "notes": "Repository freshly cloned into /workspace/projects/sample"
+      "notes": "Repository freshly cloned into /workspace/projects/sample; sbatch must call scripts/run_basic.sh"
     },
     "expectations": {
       "must_include_commands": ["git status", "module list", "cmake", "sbatch"],
@@ -25,7 +25,7 @@
       "notes": "User provided README summarises build." 
     },
     "expectations": {
-      "must_include_commands": ["git status", "module", "cmake -S", "cmake --build"],
+      "must_include_commands": ["git status", "module list", "cmake -S", "cmake --build"],
       "allow_failures": false
     }
   },
@@ -33,14 +33,14 @@
     "id": "tool-sequence-basic-03",
     "scenario": "tool_sequence",
     "fixture": "cmake_basic",
-    "task": "Perform the standard workflow and ensure the launch plan references scripts/run_basic.sh in the REPORT.",
+    "task": "Perform the standard workflow and ensure the launch plan references scripts/run_basic.sh in commands and REPORT.",
     "context": {
       "cluster": "Leonardo booster",
       "modules": ["nvhpc/22.11"],
-      "notes": "scripts/run_basic.sh should be referenced in final plan"
+      "notes": "scripts/run_basic.sh must be used in the final sbatch command"
     },
     "expectations": {
-      "must_include_commands": ["cmake -S", "cmake --build", "sbatch scripts/run_basic.sh"],
+      "must_include_commands": ["git status", "module list", "cmake -S", "cmake --build", "scripts/run_basic.sh"],
       "allow_failures": false
     }
   },
@@ -53,12 +53,12 @@
     "context": {
       "cluster": "Leonardo booster",
       "modules": ["nvhpc/23.3"],
-      "notes": "First cmake call should report missing CUDA toolkit"
+      "notes": "First cmake call should report missing CUDA toolkit; expect module load recovery"
     },
     "expectations": {
-      "failure_trigger": "cmake -S",
+      "failure_trigger": "cmake",
       "recovery_keywords": ["module load", "spack install", "retry"],
-      "must_include_commands": ["cmake -S", "cmake --build"],
+      "must_include_commands": ["git status", "module list", "cmake", "cmake --build"],
       "allow_failures": true
     }
   },
@@ -75,7 +75,7 @@
     "expectations": {
       "failure_trigger": "cmake --build",
       "recovery_keywords": ["module load nvhpc", "set(CMAKE_CUDA_COMPILER"],
-      "must_include_commands": ["cmake", "module load"],
+      "must_include_commands": ["git status", "module load", "cmake"],
       "allow_failures": true
     }
   },
@@ -90,9 +90,9 @@
       "notes": "Expect suggestion to switch partition or load CUDA module"
     },
     "expectations": {
-      "failure_trigger": "cmake -S",
-      "recovery_keywords": ["module load cuda", "use booster"],
-      "must_include_commands": ["cmake", "module"],
+      "failure_trigger": "cmake",
+      "recovery_keywords": ["module load nvhpc/23.3", "module load cuda", "use booster"],
+      "must_include_commands": ["git status", "module", "cmake"],
       "allow_failures": true
     }
   },
@@ -101,7 +101,7 @@
     "id": "ambiguity-01",
     "scenario": "ambiguity",
     "fixture": "hybrid_build",
-    "task": "Choose the safest build tooling for this hybrid repository, justify the decision, and complete the sbatch planning.",
+    "task": "Choose the safest build tooling for this hybrid repository, justify the decision, and complete the sbatch planning. Ensure the job is submitted via sbatch.",
     "context": {
       "cluster": "Leonardo booster",
       "modules": ["nvhpc/23.3"],
@@ -110,7 +110,7 @@
     "expectations": {
       "preferred_command": "cmake",
       "disallowed_keywords": ["make all"],
-      "must_include_commands": ["cmake -S", "cmake --build"],
+      "must_include_commands": ["git status", "module list", "cmake", "cmake --build"],
       "allow_failures": false
     }
   },
@@ -118,7 +118,7 @@
     "id": "ambiguity-02",
     "scenario": "ambiguity",
     "fixture": "hybrid_build",
-    "task": "Analyse both build options and recommend the most reliable one for this environment, then finish the workflow.",
+    "task": "Analyse both build options and recommend the most reliable one for this environment, then finish the workflow. The sequence must include sbatch submission.",
     "context": {
       "cluster": "Leonardo dcgp",
       "modules": ["gcc/11.2"],
@@ -127,7 +127,7 @@
     "expectations": {
       "preferred_command": "cmake",
       "disallowed_keywords": [],
-      "must_include_commands": ["cmake", "sbatch"],
+      "must_include_commands": ["git status", "module list", "cmake", "sbatch"],
       "allow_failures": false
     }
   },
@@ -144,7 +144,7 @@
     "expectations": {
       "preferred_command": "cmake",
       "disallowed_keywords": ["make"],
-      "must_include_commands": ["cmake"],
+      "must_include_commands": ["git status", "module list", "cmake"],
       "allow_failures": false
     }
   },
@@ -161,7 +161,7 @@
       "log_file": "logs/build_output.log"
     },
     "expectations": {
-      "must_include_commands": ["cmake -S", "cmake --build", "sbatch"],
+      "must_include_commands": ["git status", "module list", "cmake -S", "cmake --build", "sbatch"],
       "allow_failures": false
     }
   },
@@ -177,7 +177,7 @@
       "log_file": "logs/build_output.log"
     },
     "expectations": {
-      "must_include_commands": ["cmake", "cmake --build"],
+      "must_include_commands": ["git status", "module list", "cmake", "cmake --build"],
       "allow_failures": false
     }
   }

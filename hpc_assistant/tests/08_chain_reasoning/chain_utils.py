@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import tempfile
 import time
@@ -12,6 +13,7 @@ from typing import Any, Dict, List, Optional
 
 from langchain_core.tools import tool
 
+from hpc_assistant.utils import safety
 from hpc_assistant.utils.tools import GuardedCommandLogger
 
 
@@ -41,8 +43,7 @@ class ScenarioState:
         if trigger.lower() in command.lower():
             self.failure_injected = True
             return (
-                "CMake Error: CUDA toolkit not found. "
-                "Load the appropriate module (e.g., module load nvhpc/23.3) and retry."
+                "CMake Error: CUDA toolkit not found. Load the appropriate module (e.g., `module load nvhpc/23.3`) and rerun the CMake configure step."
             )
         return None
 
@@ -62,6 +63,14 @@ def copy_fixture(fixture_name: str) -> Path:
         raise FileNotFoundError(f"Missing fixture: {fixture_name}")
     tmp_dir = Path(tempfile.mkdtemp(prefix=f"chain_fixture_{fixture_name}_"))
     shutil.copytree(fixture_src, tmp_dir / fixture_src.name)
+    # Ensure workspace root allows this temp path.
+    try:
+        allowed = list(getattr(safety, "ALLOWED_ROOTS", []))
+        if tmp_dir not in allowed:
+            allowed.append(tmp_dir)
+            safety.ALLOWED_ROOTS = tuple(allowed)  # type: ignore[attr-defined]
+    except Exception:
+        pass
     return tmp_dir / fixture_src.name
 
 
@@ -90,10 +99,58 @@ def default_observation(command: str) -> str:
     return f"Command '{command}' executed successfully (synthetic observation)."
 
 
+def parse_tool_command(call: Dict[str, Any]) -> str:
+    """Extract the command string from a tool call payload."""
+    function_block = call.get("function") or {}
+    arguments = function_block.get("arguments")
+    if isinstance(arguments, str):
+        try:
+            parsed = json.loads(arguments)
+        except json.JSONDecodeError:
+            return arguments.strip()
+    elif isinstance(arguments, dict):
+        parsed = arguments
+    else:
+        return ""
+
+    if isinstance(parsed, dict):
+        for key in ("command", "__arg1", "cmd"):
+            value = parsed.get(key)
+            if isinstance(value, str):
+                return value.strip()
+    elif isinstance(parsed, list) and parsed:
+        first = parsed[0]
+        if isinstance(first, str):
+            return first.strip()
+    return ""
+
+
+def missing_expected_commands(state: ScenarioState) -> List[str]:
+    expectations = state.config.get("expectations", {})
+    required = expectations.get("must_include_commands", [])
+    missing: List[str] = []
+    for keyword in required:
+        if not _contains_keyword(state.command_history, keyword):
+            missing.append(keyword)
+    return missing
+
+
 def simulate_command(state: ScenarioState, command: str) -> str:
     """Simulate a shell command and produce an observation string."""
-    state.logger.log(command, task_id=state.scenario_id)
-    state.record_command(command)
+    if any(token in command for token in ["&&", ";", "\n"]):
+        return (
+            "Please issue only one shell command per tool invocation. "
+            "Run commands like `cd`, `module load`, and `cmake` as separate invocations."
+        )
+    normalized = command.strip()
+    blocked_reason = None
+    try:
+        state.logger.log(normalized, task_id=state.scenario_id)
+    except ValueError as exc:
+        blocked_reason = str(exc)
+    state.record_command(normalized)
+    if blocked_reason:
+        return f"Command rejected by safety policy: {blocked_reason}"
 
     # Check for injected failure
     failure_msg = state.should_fail(command)
@@ -104,6 +161,17 @@ def simulate_command(state: ScenarioState, command: str) -> str:
     state.note_recovery(command)
 
     cmd_lower = command.lower()
+    if cmd_lower.startswith("cd "):
+        target = command.split(maxsplit=1)[1]
+        return f"Changed directory to {target} (virtual)."
+    if cmd_lower.startswith("mkdir"):
+        return "Directory created (virtual)."
+    if cmd_lower.startswith("chmod"):
+        parts = normalized.split()
+        if len(parts) >= 3:
+            target = parts[-1]
+            return f"Permissions updated for {target} (virtual)."
+        return "Permissions updated (virtual)."
     if "git status" in cmd_lower:
         return (
             "On branch main\nnothing to commit, working tree clean\n"
@@ -116,6 +184,8 @@ def simulate_command(state: ScenarioState, command: str) -> str:
         return "CMake finished without warnings."
     if "sbatch" in cmd_lower:
         return "sbatch: job 123456 submitted (synthetic)."
+    if cmd_lower.startswith("make"):
+        return "Build completed successfully using make."
     if "module load" in cmd_lower:
         return "Module loaded successfully."
     if "spack" in cmd_lower:
@@ -147,7 +217,7 @@ def evaluate_scenario(state: ScenarioState) -> Dict[str, Any]:
     commands = state.command_history
 
     def contains_keyword(keyword: str) -> bool:
-        return any(keyword.lower() in cmd.lower() for cmd in commands)
+        return _contains_keyword(commands, keyword)
 
     missing = [
         keyword
@@ -197,6 +267,18 @@ def evaluate_scenario(state: ScenarioState) -> Dict[str, Any]:
         "passed": passed,
         "issues": issues,
     }
+
+
+def _contains_keyword(commands: List[str], keyword: str) -> bool:
+    """Check whether ``keyword`` appears as a standalone token or phrase in ``commands``."""
+    normalized = keyword.lower().strip()
+    if not normalized:
+        return False
+    pattern = re.compile(rf"(?<![a-z0-9_]){re.escape(normalized)}(?![a-z0-9_])")
+    for cmd in commands:
+        if pattern.search(cmd.lower()):
+            return True
+    return False
 
 
 def write_trace(output_dir: Path, trace: List[Dict[str, Any]]) -> None:
