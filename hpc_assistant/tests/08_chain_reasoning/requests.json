@@ -180,5 +180,39 @@
       "must_include_commands": ["git status", "module list", "cmake", "cmake --build"],
       "allow_failures": false
     }
+  },
+  {
+    "id": "leonardo-dryrun-01",
+    "scenario": "dry_run",
+    "fixture": "leonardo_dryrun",
+    "task": "Prepare the end-to-end workflow on Leonardo while keeping every scheduler command in dry-run mode. Confirm module availability and validate the batch script without dispatching work to compute nodes.",
+    "context": {
+      "cluster": "Leonardo login",
+      "modules": ["nvhpc/23.3", "openmpi/4.1"],
+      "notes": "Login node has internet access; GPU nodes do not. Use scripts/run_leonardo.sh in the final submission."
+    },
+    "expectations": {
+      "must_include_commands": ["git status", "module spider", "module list", "srun --test-only", "sbatch --test-only"],
+      "dry_run_only": true,
+      "allow_failures": false
+    }
+  },
+  {
+    "id": "leonardo-resource-mismatch-01",
+    "scenario": "partial_failure",
+    "fixture": "leonardo_dryrun",
+    "task": "The initial sbatch attempt uses the wrong partition. Diagnose the failure, choose the booster partition for GPUs, and retry in dry-run mode until the submission validates.",
+    "context": {
+      "cluster": "Leonardo login",
+      "modules": ["nvhpc/22.11"],
+      "notes": "Only the booster partition has the requested GPUs. Remember that compute nodes lack internet access."
+    },
+    "expectations": {
+      "failure_trigger": "--partition compute",
+      "recovery_keywords": ["--partition booster"],
+      "must_include_commands": ["git status", "module list", "module spider", "sbatch --test-only"],
+      "dry_run_only": true,
+      "allow_failures": true
+    }
   }
 ]

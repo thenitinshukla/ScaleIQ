@@ -143,6 +143,18 @@ def simulate_command(state: ScenarioState, command: str) -> str:
             "Run commands like `cd`, `module load`, and `cmake` as separate invocations."
         )
     normalized = command.strip()
+    cmd_lower = normalized.lower()
+    expectations = state.config.get("expectations", {})
+    if expectations.get("dry_run_only", False) and (
+        ("srun" in cmd_lower or "sbatch" in cmd_lower)
+        and "--test-only" not in cmd_lower
+        and "--dry-run" not in cmd_lower
+    ):
+        state.record_command(normalized)
+        return (
+            "Command rejected by cluster policy: compute-node operations from the login node must use --test-only."
+        )
+
     blocked_reason = None
     try:
         state.logger.log(normalized, task_id=state.scenario_id)
@@ -160,7 +172,6 @@ def simulate_command(state: ScenarioState, command: str) -> str:
     # Mark recovery attempts
     state.note_recovery(command)
 
-    cmd_lower = command.lower()
     if cmd_lower.startswith("cd "):
         target = command.split(maxsplit=1)[1]
         return f"Changed directory to {target} (virtual)."
@@ -180,8 +191,20 @@ def simulate_command(state: ScenarioState, command: str) -> str:
     if "module list" in cmd_lower:
         modules = state.config.get("context", {}).get("modules", [])
         return "Currently loaded modules:\n" + "\n".join(modules or ["<none>"])
+    if "module spider" in cmd_lower:
+        parts = normalized.split(maxsplit=2)
+        target = parts[2] if len(parts) == 3 else "<module>"
+        return (
+            f"Module spider report for {target}:\n"
+            f"- versions: 22.11 (deprecated), 23.3 (preferred)\n"
+            f"- note: load on login node before testing."
+        )
     if "cmake -s" in cmd_lower or "cmake -b" in cmd_lower or "cmake --build" in cmd_lower:
         return "CMake finished without warnings."
+    if "srun --test-only" in cmd_lower:
+        return "Dry-run validation: command would execute on booster with no side effects."
+    if "sbatch --test-only" in cmd_lower:
+        return "Dry-run validation: submission script syntax OK; no job dispatched."
     if "sbatch" in cmd_lower:
         return "sbatch: job 123456 submitted (synthetic)."
     if cmd_lower.startswith("make"):
@@ -232,6 +255,17 @@ def evaluate_scenario(state: ScenarioState) -> Dict[str, Any]:
         issues.append(f"Missing expected commands: {missing}")
         passed = False
 
+    preferred = expectations.get("preferred_command")
+    if preferred and not contains_keyword(preferred):
+        issues.append(f"Preferred command '{preferred}' not observed.")
+        passed = False
+
+    disallowed = expectations.get("disallowed_keywords", [])
+    for key in disallowed:
+        if contains_keyword(key):
+            issues.append(f"Disallowed command '{key}' encountered.")
+            passed = False
+
     scenario_type = state.config.get("scenario")
 
     if scenario_type == "partial_failure":
@@ -244,16 +278,6 @@ def evaluate_scenario(state: ScenarioState) -> Dict[str, Any]:
                 issues.append("Expected build failure was not triggered.")
             if not state.recovered:
                 issues.append("Recovery action not detected.")
-                passed = False
-    elif scenario_type == "ambiguity":
-        preferred = expectations.get("preferred_command")
-        disallowed = expectations.get("disallowed_keywords", [])
-        if preferred and not contains_keyword(preferred):
-            issues.append(f"Preferred command '{preferred}' not observed.")
-            passed = False
-        for key in disallowed:
-            if contains_keyword(key):
-                issues.append(f"Disallowed command '{key}' encountered.")
                 passed = False
     else:
         if state.failure_injected and not allow_failures:
