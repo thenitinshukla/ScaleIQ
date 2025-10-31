@@ -176,6 +176,8 @@ def run_scenario(
                     )
                     + "\n"
                 )
+            prefix = f"[{scenario_id}][{channel.upper()}]"
+            print(f"{prefix} {text}", end="", flush=True)
 
     @tool("emit_command")
     def emit_command(command: str) -> str:
@@ -206,6 +208,7 @@ def run_scenario(
         messages = [SystemMessage(content=system_prompt), HumanMessage(content=plan_prompt)]
         plan_response = planner_llm.invoke(messages)
         plan_text = llm_utils.strip_think(plan_response.content or "")
+        print(f"[{scenario_id}] PLAN\n{plan_text}\n", flush=True)
 
         trace_local.append(
             {
@@ -226,9 +229,10 @@ def run_scenario(
 
         execution_prompt = (
             f"/nothink\n\nCONTEXT:\n{context_payload}\n\nPLAN:\n{plan_text}\n\n"
-            "Execute the PLAN step-by-step. Begin by confirming repository state (e.g., `ls`, `git status` after cloning), "
-            "inspect available modules with `module spider`, load the required modules, then perform the installation/build "
-            "steps. Validate with appropriate smoke tests, and finish by preparing an sbatch script or command using `sbatch --test-only`.\n"
+            "Execute the PLAN step-by-step. Start immediately by running `module spider tinygrad` (or the requested package) "
+            "to confirm module availability, then `module load nvhpc/23.3` before proceeding. After module setup, clone the "
+            "repository, run dependency installation (one command per tool call), and confirm the install with the required "
+            "smoke tests. Finish by preparing an sbatch script or command using `sbatch --test-only`.\n"
             "After each observation, provide a one-line status beginning with 'STATUS:' that explains the next intended action.\n"
             "For each action, call the `emit_command` tool with JSON {\"command\": \"<single shell command>\"}. "
             "Do not emit multiple commands at once. Only respond with DONE after the final sbatch dry-run succeeds."
@@ -272,6 +276,7 @@ def run_scenario(
                 "tool_calls": ai_message.additional_kwargs.get("tool_calls", []),
             }
         )
+        print(f"[{scenario_id}][ASSISTANT]\n{sanitized_content}\n", flush=True)
 
         tool_calls = ai_message.additional_kwargs.get("tool_calls", []) or []
         messages = messages + [ai_message]
@@ -302,6 +307,7 @@ def run_scenario(
                         "output": observation,
                     }
                 )
+                print(f"[{scenario_id}][TOOL]\n{observation}\n", flush=True)
                 messages.append(
                     ToolMessage(
                         content=observation,
@@ -409,7 +415,7 @@ def run_scenario(
         "status": "start",
     }
     try:
-        final_state = compiled_graph.invoke(initial_state, config={"recursion_limit": 80})
+        final_state = compiled_graph.invoke(initial_state, config={"recursion_limit": 120})
         error_message = None
     except GraphRecursionError as exc:
         final_state = {"final_report": "", "trace": trace}
@@ -439,6 +445,7 @@ def run_scenario(
 
     result_path = output_dir / "result.json"
     result_path.write_text(json.dumps(result_payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    print(f"[INFO] Stored artifacts for {scenario_id} under {output_dir}", flush=True)
 
     if not keep_workspace:
         live_utils.cleanup_workspace(workspace)
