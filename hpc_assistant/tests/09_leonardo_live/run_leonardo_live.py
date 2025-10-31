@@ -177,6 +177,13 @@ def run_scenario(
                     + "\n"
                 )
 
+    @tool("emit_command")
+    def emit_command(command: str) -> str:
+        """Submit a shell command for guarded execution on Leonardo."""
+        return f"Command received: {command}"
+
+    bound_executor_llm = executor_llm.bind_tools([emit_command])
+
     context_payload = live_utils.build_context_payload(
         scenario=scenario,
         documents=documents,
@@ -561,9 +568,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-    @tool("emit_command")
-    def emit_command(command: str) -> str:
-        """Submit a shell command for guarded execution on Leonardo."""
-        return f"Command received: {command}"
-
-    bound_executor_llm = executor_llm.bind_tools([emit_command])
