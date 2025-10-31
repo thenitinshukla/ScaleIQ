@@ -34,6 +34,7 @@ class ScenarioState:
     status_updates: List[Dict[str, str]] = field(default_factory=list)
     last_result: Optional[CommandResult] = None
     last_failed_command: Optional[str] = None
+    tool_history: List[str] = field(default_factory=list)
 
     def record_result(self, result: CommandResult) -> None:
         self.command_results.append(result)
@@ -42,6 +43,9 @@ class ScenarioState:
             self.last_failed_command = result.command
         else:
             self.last_failed_command = None
+
+    def record_tool_usage(self, entry: str) -> None:
+        self.tool_history.append(entry)
 
     def add_status(self, message: str, *, phase: str) -> None:
         entry = {
@@ -135,6 +139,8 @@ def evaluate_scenario(state: ScenarioState) -> Dict[str, Any]:
     disallowed = expectations.get("disallowed_keywords", [])
 
     commands = [result.command for result in state.command_results if not result.blocked]
+    commands.extend(state.tool_history)
+    commands.extend(state.tool_history)
     missing = [cmd for cmd in required if cmd and not _contains_keyword(commands, cmd)]
 
     issues: List[str] = []

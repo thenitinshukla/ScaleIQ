@@ -20,7 +20,8 @@
       ],
       "must_include_groups": [
         ["pip install -e .", "python3 -m pip install -e ."],
-        ["conda env list", "mamba env list", "uv toolchain list"]
+        ["conda env list", "mamba env list", "uv toolchain list"],
+        ["fetch_context:"]
       ],
       "preferred_command": "srun --test-only",
       "dry_run_only": true,
@@ -49,7 +50,8 @@
       "must_include_groups": [
         ["pip install -r requirements.txt", "python3 -m pip install -r requirements.txt"],
         ["pip install -e .", "python3 -m pip install -e ."],
-        ["conda env list", "mamba env list", "uv toolchain list"]
+        ["conda env list", "mamba env list", "uv toolchain list"],
+        ["fetch_context:"]
       ],
       "dry_run_only": true,
       "allow_failures": false

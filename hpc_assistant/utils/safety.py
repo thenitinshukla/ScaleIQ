@@ -64,6 +64,7 @@ DENY_COMMANDS = {
 
 # Allowed commands without additional checks (subset).
 ALLOWED_COMMANDS = {
+    "cd",
     "ls",
     "pwd",
     "whoami",

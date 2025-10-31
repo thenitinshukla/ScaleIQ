@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import re
 import threading
 import time
 from pathlib import Path
@@ -268,7 +269,10 @@ def run_scenario(
         )
         messages = [SystemMessage(content=system_prompt), HumanMessage(content=plan_prompt)]
         plan_response = planner_llm.invoke(messages)
-        plan_text = llm_utils.strip_think(plan_response.content or "")
+        raw_plan = plan_response.content or ""
+        for thought in re.findall(r"<think>(.*?)</think>", raw_plan, flags=re.DOTALL | re.IGNORECASE):
+            print(f"[{scenario_id}][THINK]\n{thought.strip()}\n", flush=True)
+        plan_text = llm_utils.strip_think(raw_plan)
         print(f"[{scenario_id}] PLAN\n{plan_text}\n", flush=True)
 
         trace_local.append(
@@ -291,7 +295,8 @@ def run_scenario(
         execution_prompt = (
             f"CONTEXT:\n{context_payload}\n\nPLAN:\n{plan_text}\n\n"
             "Execute the PLAN step-by-step. Begin with reconnaissance: inspect the working directory (`pwd`, `ls`, `ls scripts`), review repository files once cloned, check module availability (`module avail nvhpc`), and list existing environments (`conda env list`, `uv toolchain list`)."
-            " Use the `fetch_context` tool whenever you need guidance on cluster policy or tooling. After gathering the requisite information, carry out cloning, dependency installation (consider `python3 -m pip` or activating existing environments), validation tests, and finally generate an sbatch dry-run."
+            " Before mutating the environment, issue at least one `fetch_context` query to recall relevant Leonardo policies or tooling tips, then continue to use it whenever new questions arise."
+            " After gathering the requisite information, carry out cloning, dependency installation (consider `python3 -m pip` or activating existing environments), validation tests, and finally generate an sbatch dry-run."
             " After each observation, emit a one-line status beginning with 'STATUS:' summarising the result and next intention."
             " For every shell action, call the `emit_command` tool with JSON {\"command\": \"<single shell command>\"}; never bundle multiple commands."
             " Only respond with DONE once all required reconnaissance, installations, validations, and sbatch dry-run commands have completed successfully."
@@ -321,7 +326,10 @@ def run_scenario(
             return {"trace": trace_local, "status": "done", "final_report": "No execution messages."}
 
         ai_message = bound_executor_llm.invoke(messages)
-        sanitized_content = llm_utils.strip_think(ai_message.content or "")
+        raw_content = ai_message.content or ""
+        for thought in re.findall(r"<think>(.*?)</think>", raw_content, flags=re.DOTALL | re.IGNORECASE):
+            print(f"[{scenario_id}][THINK]\n{thought.strip()}\n", flush=True)
+        sanitized_content = llm_utils.strip_think(raw_content)
         status_line = extract_status_line(sanitized_content)
         if status_line:
             state.add_status(status_line, phase="assistant")
@@ -348,6 +356,7 @@ def run_scenario(
                     query = parse_tool_query(call)
                     observation = fetch_context(query)
                     command_label = f"fetch_context:{query}"
+                    state.record_tool_usage(command_label)
                 else:
                     command = parse_tool_command(call)
                     command_label = command or "<empty>"
