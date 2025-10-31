@@ -2,7 +2,7 @@
   {
     "id": "tinygrad-setup",
     "scenario": "tinygrad_install",
-    "task": "Set up the tinygrad repository from https://github.com/geohot/tinygrad.git on the Leonardo login node. Use dry-run commands for any scheduler interaction, verify dependencies, and prepare an sbatch plan for the booster partition.",
+    "task": "Set up the tinygrad repository from https://github.com/geohot/tinygrad.git on the Leonardo login node. Use dry-run commands for any scheduler interaction, verify dependencies (e.g., `python3 test/test_ops.py -q`), and prepare an sbatch plan for the booster partition.",
     "context": {
       "cluster": "Leonardo login",
       "modules": ["nvhpc/22.11"],
@@ -15,13 +15,13 @@
         "module load nvhpc",
         "git clone https://github.com/geohot/tinygrad.git",
         "cd tinygrad",
-        "python3 test/test_ops.py --quick",
         "sbatch --test-only"
       ],
       "must_include_groups": [
         ["uv init", "python3 -m venv", "conda create"],
         ["uv add -e .", "uv pip install -e .", "python3 -m pip install -e .", "pip install -e ."],
         ["conda env list", "mamba env list", "uv toolchain list"],
+        ["python3 test/test_ops.py -q", "python3 test/test_ops.py", "uv run python3 test/test_ops.py -q"],
         ["fetch_context:"]
       ],
       "preferred_command": "srun --test-only",
@@ -32,7 +32,7 @@
   {
     "id": "unsloth-finetune",
     "scenario": "unsloth_pipeline",
-    "task": "Prepare the unsloth finetuning environment from https://github.com/unslothai/unsloth.git. Ensure dependencies are installed, dataset directory is staged, and an sbatch dry-run is generated for booster.",
+    "task": "Prepare the unsloth finetuning environment from https://github.com/unslothai/unsloth.git. Ensure dependencies are installed (use repo-recommended test or smoke checks as needed), dataset directory is staged, and an sbatch dry-run is generated for booster.",
     "context": {
       "cluster": "Leonardo login",
       "modules": ["nvhpc/22.11"],
