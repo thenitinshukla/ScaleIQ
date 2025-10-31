@@ -378,8 +378,6 @@ def run_scenario(
                                 "STATUS: A command failed. Investigate by inspecting directories, checking module and environment"
                                 " availability, or querying fetch_context before retrying."
                             )
-                            if "--quick" in (command or ""):
-                                failure_prompt += " Consider running `python3 test/test_ops.py -h` to discover supported flags (e.g., `-q`)."
                             state.add_status(failure_prompt, phase="reminder")
                             trace_local.append(
                                 {

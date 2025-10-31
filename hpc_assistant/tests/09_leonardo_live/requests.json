@@ -21,7 +21,7 @@
         ["uv init", "python3 -m venv", "conda create"],
         ["uv add -e .", "uv pip install -e .", "python3 -m pip install -e .", "pip install -e ."],
         ["conda env list", "mamba env list", "uv toolchain list"],
-        ["python3 test/test_ops.py -q", "python3 test/test_ops.py", "uv run python3 test/test_ops.py -q"],
+        ["python3 test/test_ops.py -q", "python3 test/test_ops.py", "uv run python3 test/test_ops.py", "uv run python3 test/test_ops.py -q", "python3 -m pytest"],
         ["fetch_context:"]
       ],
       "preferred_command": "srun --test-only",

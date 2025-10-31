@@ -171,6 +171,32 @@ def evaluate_scenario(state: ScenarioState) -> Dict[str, Any]:
             issues.append(f"{len(failures)} command(s) failed unexpectedly.")
             passed = False
 
+    # Scenario-specific behavioural checks
+    scenario_id = state.config.get("id") or state.scenario_id
+    if scenario_id == "tinygrad-setup":
+        test_results = [
+            r
+            for r in state.command_results
+            if "python3" in r.command.lower() and "test/test_ops.py" in r.command.lower()
+        ]
+        if test_results:
+            if not any(r.returncode == 0 for r in test_results):
+                issues.append("Tinygrad smoke test did not complete successfully.")
+                passed = False
+            if any(r.returncode not in (0, None) for r in test_results):
+                help_used = any(
+                    "python3" in r.command.lower()
+                    and "test/test_ops.py" in r.command.lower()
+                    and (" -h" in r.command.lower() or " --help" in r.command.lower())
+                    for r in state.command_results
+                )
+                if not help_used:
+                    issues.append("Tinygrad test failure encountered without consulting `python3 test/test_ops.py -h`." )
+                    passed = False
+        else:
+            issues.append("Tinygrad smoke test command was never executed.")
+            passed = False
+
     return {
         "passed": passed,
         "issues": issues,
