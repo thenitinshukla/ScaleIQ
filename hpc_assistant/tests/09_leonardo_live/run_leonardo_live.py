@@ -114,6 +114,31 @@ def parse_tool_command(call: Dict[str, Any]) -> str:
     return ""
 
 
+def parse_tool_query(call: Dict[str, Any]) -> str:
+    function_block = call.get("function") or {}
+    arguments = function_block.get("arguments")
+    if isinstance(arguments, str):
+        try:
+            parsed = json.loads(arguments)
+        except json.JSONDecodeError:
+            return arguments.strip()
+    elif isinstance(arguments, dict):
+        parsed = arguments
+    else:
+        return ""
+
+    if isinstance(parsed, dict):
+        for key in ("query", "question", "prompt", "__arg1"):
+            value = parsed.get(key)
+            if isinstance(value, str):
+                return value.strip()
+    elif isinstance(parsed, list) and parsed:
+        first = parsed[0]
+        if isinstance(first, str):
+            return first.strip()
+    return ""
+
+
 def format_command_result(result: CommandResult) -> str:
     if result.blocked:
         return f"Command rejected by safety policy: {result.error or 'Command blocked.'}"
@@ -186,13 +211,46 @@ def run_scenario(
         """Submit a shell command for guarded execution on Leonardo."""
         return f"Command received: {command}"
 
-    bound_executor_llm = executor_llm.bind_tools([emit_command])
+    environment_hints = live_utils.gather_environment_hints()
 
     context_payload = live_utils.build_context_payload(
         scenario=scenario,
         documents=documents,
         live_notes=None,
+        environment_hints=environment_hints,
     )
+
+    context_index: List[Dict[str, str]] = []
+    for doc in documents:
+        context_index.append({"source": doc["name"], "content": doc["content"]})
+    if environment_hints:
+        context_index.append({"source": "environment_hints", "content": environment_hints})
+    scenario_notes = scenario.get("context", {}).get("notes")
+    if scenario_notes:
+        context_index.append({"source": "scenario_notes", "content": scenario_notes})
+
+    @tool("fetch_context")
+    def fetch_context(query: str) -> str:
+        """Retrieve relevant guidance from the Leonardo knowledge base."""
+        normalized = (query or "").strip().lower()
+        if not normalized:
+            return "Provide a query describing what you need to know."
+        matches: List[Dict[str, str]] = []
+        for entry in context_index:
+            text_lower = entry["content"].lower()
+            if normalized in text_lower:
+                idx = text_lower.index(normalized)
+                start = max(0, idx - 200)
+                end = min(len(entry["content"]), idx + 200)
+                snippet = entry["content"][start:end]
+                matches.append({"source": entry["source"], "excerpt": snippet})
+        if not matches:
+            # fallback: return first 3 docs
+            fallback = context_index[:3]
+            return json.dumps({"matches": fallback}, ensure_ascii=False, indent=2)
+        return json.dumps({"matches": matches[:3]}, ensure_ascii=False, indent=2)
+
+    bound_executor_llm = executor_llm.bind_tools([emit_command, fetch_context])
 
     system_prompt = env_utils.get_system_prompt()
     trace: List[Dict[str, Any]] = []
@@ -202,10 +260,11 @@ def run_scenario(
     def planner_node(current_state: Dict[str, Any]) -> Dict[str, Any]:
         trace_local = list(current_state.get("trace", []))
         plan_prompt = (
-            f"/nothink\n\nCONTEXT:\n{context_payload}\n\n"
+            f"CONTEXT:\n{context_payload}\n\n"
             f"TASK:\n{scenario.get('task')}\n\n"
-            "Produce a concise numbered PLAN covering repository intake, module inspection, dependency installation, validation "
-            "commands, and sbatch dry-run preparation. Do not execute commands yet. Include any required safety reminders."
+            "Draft a concise numbered PLAN that begins with environment reconnaissance (e.g., `pwd`, `ls`, reviewing README, checking available modules with `module avail`, listing existing Conda/uv environments)."
+            " Indicate when you will consult `fetch_context` for cluster policies. Only after the reconnaissance describe repository cloning, dependency setup, validation commands, and sbatch dry-run preparation."
+            " Include relevant safety reminders for the Leonardo login node."
         )
         messages = [SystemMessage(content=system_prompt), HumanMessage(content=plan_prompt)]
         plan_response = planner_llm.invoke(messages)
@@ -230,14 +289,12 @@ def run_scenario(
         )
 
         execution_prompt = (
-            f"/nothink\n\nCONTEXT:\n{context_payload}\n\nPLAN:\n{plan_text}\n\n"
-            "Execute the PLAN step-by-step. Start immediately by running `module spider tinygrad` (or the requested package) "
-            "to confirm module availability, then `module load nvhpc/23.3` before proceeding. After module setup, clone the "
-            "repository, run dependency installation (one command per tool call), and confirm the install with the required "
-            "smoke tests. Finish by preparing an sbatch script or command using `sbatch --test-only`.\n"
-            "After each observation, provide a one-line status beginning with 'STATUS:' that explains the next intended action.\n"
-            "For each action, call the `emit_command` tool with JSON {\"command\": \"<single shell command>\"}. "
-            "Do not emit multiple commands at once. Only respond with DONE after the final sbatch dry-run succeeds."
+            f"CONTEXT:\n{context_payload}\n\nPLAN:\n{plan_text}\n\n"
+            "Execute the PLAN step-by-step. Begin with reconnaissance: inspect the working directory (`pwd`, `ls`, `ls scripts`), review repository files once cloned, check module availability (`module avail nvhpc`), and list existing environments (`conda env list`, `uv toolchain list`)."
+            " Use the `fetch_context` tool whenever you need guidance on cluster policy or tooling. After gathering the requisite information, carry out cloning, dependency installation (consider `python3 -m pip` or activating existing environments), validation tests, and finally generate an sbatch dry-run."
+            " After each observation, emit a one-line status beginning with 'STATUS:' summarising the result and next intention."
+            " For every shell action, call the `emit_command` tool with JSON {\"command\": \"<single shell command>\"}; never bundle multiple commands."
+            " Only respond with DONE once all required reconnaissance, installations, validations, and sbatch dry-run commands have completed successfully."
         )
 
         trace_local.append(
@@ -285,27 +342,50 @@ def run_scenario(
 
         if tool_calls:
             for call in tool_calls:
-                command = parse_tool_command(call)
-                if not command:
-                    observation = "Tool call missing `command` payload."
-                elif command.lower().startswith("cd "):
-                    observation = handle_directory_change(state, command, stream_callback)
+                function_meta = call.get("function") or {}
+                tool_name = function_meta.get("name")
+                if tool_name == "fetch_context":
+                    query = parse_tool_query(call)
+                    observation = fetch_context(query)
+                    command_label = f"fetch_context:{query}"
                 else:
-                    result = state.executor.run(
-                        command,
-                        cwd=state.current_dir,
-                        stream_callback=stream_callback,
-                        task_id=scenario_id,
-                    )
-                    state.record_result(result)
-                    observation = format_command_result(result)
+                    command = parse_tool_command(call)
+                    command_label = command or "<empty>"
+                    if not command:
+                        observation = "Tool call missing `command` payload."
+                    elif command.lower().startswith("cd "):
+                        observation = handle_directory_change(state, command, stream_callback)
+                    else:
+                        result = state.executor.run(
+                            command,
+                            cwd=state.current_dir,
+                            stream_callback=stream_callback,
+                            task_id=scenario_id,
+                        )
+                        state.record_result(result)
+                        observation = format_command_result(result)
+                        if result.returncode not in (0, None):
+                            failure_prompt = (
+                                "STATUS: A command failed. Investigate by inspecting directories, checking module and environment"
+                                " availability, or querying fetch_context before retrying."
+                            )
+                            state.add_status(failure_prompt, phase="reminder")
+                            trace_local.append(
+                                {
+                                    "timestamp": live_utils.timestamp(),
+                                    "role": "user",
+                                    "phase": "reminder",
+                                    "content": failure_prompt,
+                                }
+                            )
+                            messages.append(HumanMessage(content=failure_prompt))
 
                 trace_local.append(
                     {
                         "timestamp": live_utils.timestamp(),
                         "role": "tool",
                         "phase": "execute",
-                        "command": command,
+                        "command": command_label,
                         "output": observation,
                     }
                 )
@@ -322,8 +402,8 @@ def run_scenario(
             pending = live_utils.expected_command_gaps(state)
             if pending:
                 reminder = (
-                    "STATUS: Pending required commands. Next, execute: "
-                    f"`{pending[0]}` (still missing: {', '.join(pending)})."
+                    "STATUS: Pending required reconnaissance or workflow commands. Next recommended action: "
+                    f"`{pending[0]}` (still outstanding: {', '.join(pending)})."
                 )
                 state.add_status(reminder, phase="reminder")
                 trace_local.append(

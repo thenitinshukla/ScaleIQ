@@ -10,12 +10,17 @@
     },
     "expectations": {
       "must_include_commands": [
-        "module avail nvhpc",
-        "module load nvhpc/22.11",
+        "ls",
+        "module avail",
+        "module load nvhpc",
         "git clone https://github.com/geohot/tinygrad.git",
-        "pip install -e .",
+        "cd tinygrad",
         "python3 test/test_ops.py --quick",
         "sbatch --test-only"
+      ],
+      "must_include_groups": [
+        ["pip install -e .", "python3 -m pip install -e ."],
+        ["conda env list", "mamba env list", "uv toolchain list"]
       ],
       "preferred_command": "srun --test-only",
       "dry_run_only": true,
@@ -33,13 +38,18 @@
     },
     "expectations": {
       "must_include_commands": [
-        "module avail nvhpc",
-        "module load nvhpc/22.11",
+        "ls",
+        "module avail",
+        "module load nvhpc",
         "git clone https://github.com/unslothai/unsloth.git",
-        "pip install -r requirements.txt",
-        "pip install -e .",
+        "cd unsloth",
         "mkdir -p datasets",
         "sbatch --test-only"
+      ],
+      "must_include_groups": [
+        ["pip install -r requirements.txt", "python3 -m pip install -r requirements.txt"],
+        ["pip install -e .", "python3 -m pip install -e ."],
+        ["conda env list", "mamba env list", "uv toolchain list"]
       ],
       "dry_run_only": true,
       "allow_failures": false

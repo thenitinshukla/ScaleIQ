@@ -8,6 +8,7 @@
   pip install -r requirements.txt
   pip install -e .
   ```
+  If required, prefer `python3 -m pip` or `conda run -n <env> pip` to keep installations within a managed environment.
 - Prepare datasets under `/leonardo/home/userexternal/<uid>/datasets`.
 - For dry-run jobs, use:
   ```

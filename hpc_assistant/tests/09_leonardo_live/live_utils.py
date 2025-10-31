@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import shutil
+import subprocess
 import tempfile
 import time
 from dataclasses import dataclass, field
@@ -31,9 +32,16 @@ class ScenarioState:
     executor: CommandExecutor
     command_results: List[CommandResult] = field(default_factory=list)
     status_updates: List[Dict[str, str]] = field(default_factory=list)
+    last_result: Optional[CommandResult] = None
+    last_failed_command: Optional[str] = None
 
     def record_result(self, result: CommandResult) -> None:
         self.command_results.append(result)
+        self.last_result = result
+        if result.returncode not in (0, None):
+            self.last_failed_command = result.command
+        else:
+            self.last_failed_command = None
 
     def add_status(self, message: str, *, phase: str) -> None:
         entry = {
@@ -85,6 +93,7 @@ def build_context_payload(
     scenario: Dict[str, Any],
     documents: List[Dict[str, str]],
     live_notes: Optional[str] = None,
+    environment_hints: Optional[str] = None,
 ) -> str:
     """Assemble the context JSON passed to the planner/executor."""
     payload = {
@@ -98,6 +107,7 @@ def build_context_payload(
             for doc in documents
         ],
         "live_notes": live_notes,
+        "environment_hints": environment_hints,
     }
     return json.dumps(payload, indent=2, ensure_ascii=False)
 
@@ -120,6 +130,7 @@ def evaluate_scenario(state: ScenarioState) -> Dict[str, Any]:
     """Assess whether the scenario satisfied the required behaviours."""
     expectations = state.config.get("expectations", {})
     required = expectations.get("must_include_commands", [])
+    require_sets = expectations.get("must_include_groups", [])
     preferred = expectations.get("preferred_command")
     disallowed = expectations.get("disallowed_keywords", [])
 
@@ -132,6 +143,11 @@ def evaluate_scenario(state: ScenarioState) -> Dict[str, Any]:
     if missing:
         issues.append(f"Missing expected commands: {missing}")
         passed = False
+
+    for group in require_sets:
+        if not any(_contains_keyword(commands, item) for item in group):
+            issues.append(f"Expected at least one of: {group}")
+            passed = False
 
     if preferred and not _contains_keyword(commands, preferred):
         issues.append(f"Preferred command '{preferred}' not observed.")
@@ -169,8 +185,13 @@ def expected_command_gaps(state: ScenarioState) -> List[str]:
     """Return commands that have not yet been observed."""
     expectations = state.config.get("expectations", {})
     required = expectations.get("must_include_commands", [])
+    require_sets = expectations.get("must_include_groups", [])
     commands = [result.command for result in state.command_results if not result.blocked]
-    return [cmd for cmd in required if cmd and not _contains_keyword(commands, cmd)]
+    missing = [cmd for cmd in required if cmd and not _contains_keyword(commands, cmd)]
+    for group in require_sets:
+        if not any(_contains_keyword(commands, item) for item in group):
+            missing.append(group[0])
+    return missing
 
 
 def bootstrap_workspace(state: ScenarioState) -> None:
@@ -181,8 +202,13 @@ def bootstrap_workspace(state: ScenarioState) -> None:
         script_path = scripts_dir / "run_tinygrad.sbatch"
         if not script_path.exists():
             script_path.write_text(
-                "#!/bin/bash\n#SBATCH --job-name=tinygrad-dryrun\n#SBATCH --partition=booster\n#SBATCH --gpus-per-node=1\n#SBATCH --time=00:05:00\n\n"
-                "echo \"Dry-run: tinygrad inference\"\npython3 -c 'print(\"tinygrad dry-run\")'\n",
+                "#!/bin/bash\n"
+                "#SBATCH --job-name=tinygrad-dryrun\n"
+                "#SBATCH --partition=boost_usr_prod\n"
+                "#SBATCH --gpus-per-node=1\n"
+                "#SBATCH --time=00:05:00\n\n"
+                "echo \"Dry-run: tinygrad inference\"\n"
+                "python3 -c 'print(\"tinygrad dry-run\")'\n",
                 encoding="utf-8",
             )
     elif state.scenario_id == "unsloth-finetune":
@@ -193,10 +219,57 @@ def bootstrap_workspace(state: ScenarioState) -> None:
         script_path = scripts_dir / "finetune_booster.sbatch"
         if not script_path.exists():
             script_path.write_text(
-                "#!/bin/bash\n#SBATCH --job-name=unsloth-dryrun\n#SBATCH --partition=booster\n#SBATCH --gpus-per-node=1\n#SBATCH --time=00:10:00\n\n"
-                "echo \"Dry-run: unsloth finetune\"\npython3 -c 'print(\"unsloth dry-run\")'\n",
+                "#!/bin/bash\n"
+                "#SBATCH --job-name=unsloth-dryrun\n"
+                "#SBATCH --partition=boost_usr_prod\n"
+                "#SBATCH --gpus-per-node=1\n"
+                "#SBATCH --time=00:10:00\n\n"
+                "echo \"Dry-run: unsloth finetune\"\n"
+                "python3 -c 'print(\"unsloth dry-run\")'\n",
                 encoding="utf-8",
             )
+
+
+def gather_environment_hints() -> str:
+    """Collect lightweight hints about existing Python environments."""
+    notes: List[str] = []
+    home = Path.home()
+
+    def _list_dirs(path: Path, label: str) -> None:
+        try:
+            if path.exists():
+                names = sorted(p.name for p in path.iterdir() if p.is_dir())[:10]
+                if names:
+                    notes.append(f"{label}: {', '.join(names)}")
+        except Exception:
+            return
+
+    _list_dirs(home / ".conda" / "envs", "Conda environments")
+    _list_dirs(home / ".virtualenvs", "Virtualenvs")
+    _list_dirs(home / ".cache" / "uv" / "venv", "uv environments")
+
+    commands = [
+        ("conda env list", "conda env list"),
+        ("mamba env list", "mamba env list"),
+        ("uv toolchain list", "uv toolchain list"),
+    ]
+    for label, cmd in commands:
+        try:
+            proc = subprocess.run(
+                ["bash", "-lc", cmd],
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=3,
+            )
+        except Exception:
+            continue
+        output = (proc.stdout or proc.stderr or "").strip()
+        if output:
+            first_line = output.splitlines()[0][:120]
+            notes.append(f"{label} -> {first_line}")
+
+    return "\n".join(notes)
 
 
 def _contains_keyword(commands: List[str], keyword: str) -> bool:
