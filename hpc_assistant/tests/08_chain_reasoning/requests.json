@@ -208,7 +208,7 @@
       "notes": "Only the booster partition has the requested GPUs. Remember that compute nodes lack internet access."
     },
     "expectations": {
-      "failure_trigger": "--partition compute",
+      "failure_trigger": "sbatch --test-only",
       "failure_message": "Partition compute does not expose GPUs. Switch to partition booster before retrying.",
       "recovery_keywords": ["--partition booster", "--partition=booster"],
       "must_include_commands": ["git status", "module list", "module spider", "sbatch --test-only"],

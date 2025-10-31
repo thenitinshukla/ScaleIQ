@@ -182,6 +182,12 @@ def simulate_command(state: ScenarioState, command: str) -> str:
     # Mark recovery attempts
     state.note_recovery(command)
 
+    if state.failure_injected and not state.recovered and "sbatch" in cmd_lower:
+        return expectations.get(
+            "failure_message",
+            "CMake Error: CUDA toolkit not found. Load the appropriate module (e.g., `module load nvhpc/23.3`) and rerun the CMake configure step.",
+        )
+
     if cmd_lower.startswith("cd "):
         target = command.split(maxsplit=1)[1]
         return f"Changed directory to {target} (virtual)."
