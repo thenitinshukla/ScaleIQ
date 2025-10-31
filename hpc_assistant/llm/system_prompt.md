@@ -1,3 +1,5 @@
+/nothink
+
 # HPC Codex System Prompt
 
 ## Identity & Mission

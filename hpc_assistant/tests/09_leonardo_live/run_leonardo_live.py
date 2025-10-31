@@ -263,7 +263,7 @@ def run_scenario(
         plan_prompt = (
             f"CONTEXT:\n{context_payload}\n\n"
             f"TASK:\n{scenario.get('task')}\n\n"
-            "Draft a concise numbered PLAN that begins with environment reconnaissance (e.g., `pwd`, `ls`, reviewing README, checking available modules with `module avail`, listing existing Conda/uv environments)."
+            "/nothink Draft a concise numbered PLAN that begins with environment reconnaissance (e.g., `pwd`, `ls`, reviewing README, checking available modules with `module avail`, listing existing Conda/uv environments)."
             " Indicate when you will consult `fetch_context` for cluster policies. Only after the reconnaissance describe repository cloning, dependency setup, validation commands, and sbatch dry-run preparation."
             " Include relevant safety reminders for the Leonardo login node."
         )
