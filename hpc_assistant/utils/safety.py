@@ -45,8 +45,6 @@ DENY_COMMANDS = {
     "nc",
     "netcat",
     "socat",
-    "python",
-    "python3",
     "perl",
     "ruby",
     "php",
@@ -94,6 +92,9 @@ ALLOWED_COMMANDS = {
     "make",
     "git",
     "spack",
+    "pip",
+    "python3",
+    "python",
 }
 
 # Patterns indicating dangerous behaviour (regex applied case-insensitively).

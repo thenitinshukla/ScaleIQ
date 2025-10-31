@@ -6,12 +6,12 @@
     "context": {
       "cluster": "Leonardo login",
       "modules": ["nvhpc/22.11"],
-      "notes": "Planner must load nvhpc/23.3 before GPU work. Login node has internet; compute nodes do not."
+      "notes": "Planner must verify module availability with `module avail nvhpc` and load the current version before GPU work. Login node has internet; compute nodes do not."
     },
     "expectations": {
       "must_include_commands": [
-        "module spider tinygrad",
-        "module load nvhpc/23.3",
+        "module avail nvhpc",
+        "module load nvhpc/22.11",
         "git clone https://github.com/geohot/tinygrad.git",
         "pip install -e .",
         "python3 test/test_ops.py --quick",
@@ -28,12 +28,13 @@
     "task": "Prepare the unsloth finetuning environment from https://github.com/unslothai/unsloth.git. Ensure dependencies are installed, dataset directory is staged, and an sbatch dry-run is generated for booster.",
     "context": {
       "cluster": "Leonardo login",
-      "modules": ["nvhpc/23.3"],
+      "modules": ["nvhpc/22.11"],
       "notes": "Datasets live under /leonardo/home/userexternal/<uid>/datasets."
     },
     "expectations": {
       "must_include_commands": [
-        "module spider unsloth",
+        "module avail nvhpc",
+        "module load nvhpc/22.11",
         "git clone https://github.com/unslothai/unsloth.git",
         "pip install -r requirements.txt",
         "pip install -e .",

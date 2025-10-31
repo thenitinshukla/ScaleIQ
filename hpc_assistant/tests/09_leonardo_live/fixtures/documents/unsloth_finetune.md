@@ -2,6 +2,7 @@
 
 - Repository: `https://github.com/unslothai/unsloth.git`
 - Recommended Python: 3.10 with CUDA 11.8 support.
+- Inspect modules with `module avail nvhpc` and load the recommended compiler stack (e.g., `module load nvhpc/22.11`) before installation.
 - Install requirements:
   ```
   pip install -r requirements.txt

@@ -12,5 +12,5 @@
    ```
    python3 test/test_ops.py --quick
    ```
-4. For GPU runs on Leonardo, load `nvhpc/23.3` and request the `booster` partition.
-5. Submit jobs with `sbatch --test-only scripts/run_tinygrad.sbatch` when validating on the login node.
+4. On Leonardo, first check availability with `module avail nvhpc` and load the current version (e.g., `module load nvhpc/22.11`) before running GPU workflows.
+5. Submit jobs with `sbatch --test-only scripts/run_tinygrad.sbatch` when validating on the login node; the script can live under `scripts/run_tinygrad.sbatch`.

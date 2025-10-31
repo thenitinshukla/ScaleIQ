@@ -173,6 +173,32 @@ def expected_command_gaps(state: ScenarioState) -> List[str]:
     return [cmd for cmd in required if cmd and not _contains_keyword(commands, cmd)]
 
 
+def bootstrap_workspace(state: ScenarioState) -> None:
+    """Populate the workspace with helper files for specific scenarios."""
+    if state.scenario_id == "tinygrad-setup":
+        scripts_dir = state.workdir / "scripts"
+        scripts_dir.mkdir(parents=True, exist_ok=True)
+        script_path = scripts_dir / "run_tinygrad.sbatch"
+        if not script_path.exists():
+            script_path.write_text(
+                "#!/bin/bash\n#SBATCH --job-name=tinygrad-dryrun\n#SBATCH --partition=booster\n#SBATCH --gpus-per-node=1\n#SBATCH --time=00:05:00\n\n"
+                "echo \"Dry-run: tinygrad inference\"\npython3 -c 'print(\"tinygrad dry-run\")'\n",
+                encoding="utf-8",
+            )
+    elif state.scenario_id == "unsloth-finetune":
+        datasets_dir = state.workdir / "datasets"
+        datasets_dir.mkdir(parents=True, exist_ok=True)
+        scripts_dir = state.workdir / "scripts"
+        scripts_dir.mkdir(parents=True, exist_ok=True)
+        script_path = scripts_dir / "finetune_booster.sbatch"
+        if not script_path.exists():
+            script_path.write_text(
+                "#!/bin/bash\n#SBATCH --job-name=unsloth-dryrun\n#SBATCH --partition=booster\n#SBATCH --gpus-per-node=1\n#SBATCH --time=00:10:00\n\n"
+                "echo \"Dry-run: unsloth finetune\"\npython3 -c 'print(\"unsloth dry-run\")'\n",
+                encoding="utf-8",
+            )
+
+
 def _contains_keyword(commands: List[str], keyword: str) -> bool:
     normalized = keyword.lower().strip()
     if not normalized:

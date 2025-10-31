@@ -159,6 +159,8 @@ def run_scenario(
         executor=executor,
     )
 
+    live_utils.bootstrap_workspace(state)
+
     stream_lock = threading.Lock()
     stream_path = output_dir / "command_stream.log"
 
