@@ -19,7 +19,8 @@
         "sbatch --test-only"
       ],
       "must_include_groups": [
-        ["pip install -e .", "python3 -m pip install -e ."],
+        ["uv init", "python3 -m venv", "conda create"],
+        ["uv add -e .", "uv pip install -e .", "python3 -m pip install -e .", "pip install -e ."],
         ["conda env list", "mamba env list", "uv toolchain list"],
         ["fetch_context:"]
       ],
@@ -48,8 +49,9 @@
         "sbatch --test-only"
       ],
       "must_include_groups": [
-        ["pip install -r requirements.txt", "python3 -m pip install -r requirements.txt"],
-        ["pip install -e .", "python3 -m pip install -e ."],
+        ["uv init", "python3 -m venv", "conda create"],
+        ["uv add -r requirements.txt", "uv pip install -r requirements.txt", "python3 -m pip install -r requirements.txt", "pip install -r requirements.txt"],
+        ["uv add -e .", "uv pip install -e .", "python3 -m pip install -e .", "pip install -e ."],
         ["conda env list", "mamba env list", "uv toolchain list"],
         ["fetch_context:"]
       ],
