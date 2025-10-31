@@ -40,10 +40,20 @@ class ScenarioState:
             return None
         if self.failure_injected:
             return None
-        if trigger.lower() in command.lower():
+        normalized_trigger = trigger.lower()
+        normalized_command = command.lower()
+        trigger_variants = {normalized_trigger}
+        if normalized_trigger.startswith("--partition "):
+            trigger_variants.add(normalized_trigger.replace("--partition ", "--partition="))
+        if normalized_trigger.startswith("--partition="):
+            trigger_variants.add(normalized_trigger.replace("--partition=", "--partition "))
+        if normalized_trigger.startswith("module load "):
+            trigger_variants.add(normalized_trigger.replace("module load ", "module load\t"))
+        if any(var in normalized_command for var in trigger_variants):
             self.failure_injected = True
-            return (
-                "CMake Error: CUDA toolkit not found. Load the appropriate module (e.g., `module load nvhpc/23.3`) and rerun the CMake configure step."
+            return expectations.get(
+                "failure_message",
+                "CMake Error: CUDA toolkit not found. Load the appropriate module (e.g., `module load nvhpc/23.3`) and rerun the CMake configure step.",
             )
         return None
 

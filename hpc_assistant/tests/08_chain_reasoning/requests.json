@@ -209,7 +209,8 @@
     },
     "expectations": {
       "failure_trigger": "--partition compute",
-      "recovery_keywords": ["--partition booster"],
+      "failure_message": "Partition compute does not expose GPUs. Switch to partition booster before retrying.",
+      "recovery_keywords": ["--partition booster", "--partition=booster"],
       "must_include_commands": ["git status", "module list", "module spider", "sbatch --test-only"],
       "dry_run_only": true,
       "allow_failures": true

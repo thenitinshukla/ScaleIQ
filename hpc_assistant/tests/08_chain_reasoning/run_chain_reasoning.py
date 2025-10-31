@@ -147,6 +147,7 @@ def run_scenario(scenario: Dict[str, Any]) -> Dict[str, Any]:
             f"/nothink\n\nCONTEXT:\n{context_payload}\n\nPLAN:\n{plan_text}\n\n"
             "Execute the PLAN step-by-step. Begin by running `git status` (or an equivalent repository inspection), then `module list` to confirm the environment, followed by CMake configuration commands (e.g., `cmake -S <src> -B <build>`), build commands, and finally sbatch preparation/submission.\n"
             "For each action, call the `emit_command` tool with JSON {\"command\": \"<single shell command>\"}. Emit exactly one command per tool invocation. After each observation, decide on the next command until the workflow is complete.\n"
+            "Do not respond with DONE until you have successfully issued the final sbatch (or sbatch --test-only) command and observed its result.\n"
             "When every required action is complete and the sbatch script is prepared, respond with DONE followed by the final REPORT (no tool calls)."
         )
         execution_messages = [
